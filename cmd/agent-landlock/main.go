@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rv/agent-landlock/internal/agentlandlock"
+	"github.com/sintoniastrategy/agent-landlock/internal/agentlandlock"
 )
 
 func main() {

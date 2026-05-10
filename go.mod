@@ -1,4 +1,4 @@
-module github.com/rv/agent-landlock
+module github.com/sintoniastrategy/agent-landlock
 
 go 1.24.0
 
