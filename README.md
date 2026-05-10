@@ -2,84 +2,112 @@
 
 Run AI coding agents under a Linux Landlock write boundary.
 
-`agent-landlock` runs the child process as the current Unix user, keeps normal file
-ownership, and uses the kernel Landlock LSM to make the host filesystem
-read-only except for explicitly writable directories and system-managed paths.
+The wrapper keeps the agent as your Unix user with normal file ownership, then
+asks the kernel Landlock LSM to make the host filesystem read-only except for
+the workspace and any paths you explicitly grant. No paired user, no sudoers
+drop-in, no recursive ACL pass, no bwrap mount namespace, no cleanup.
 
-## Model
+## Requirements
 
-The boundary is write-oriented, not read-oriented.
+- Linux kernel with Landlock ABI v3 or newer (≥ 6.2). `agent-landlock` fails
+  closed if Landlock is unavailable or if the kernel exposes an older ABI;
+  v3 is required for write-truncation control.
+- Go 1.24+ to build.
 
-- The process can read the same files the current user can read.
-- The process can write the current project directory selected by `--dir` or
-  `$PWD`.
-- The process can write additional directories passed with `--grant`.
-- System-managed paths such as `/tmp`, `/dev`, `/proc`, `/sys`, `/run`, `/etc`,
-  `/usr`, `/var`, `/media`, and `/mnt` remain writable according to normal Unix
-  permissions.
-- Known agents get their own state directory writable by default:
-  `~/.claude`, `~/.codex`, or `~/.gemini`. Claude also gets
-  `~/.local/state/claude` for its runtime locks.
-- Persistent grants are records under `~/.local/state/agent-landlock/grants.json`.
-  They do not mutate filesystem ACLs.
-
-Landlock is process-local. There is no paired Unix user, sudoers drop-in,
-recursive `setfacl`, bwrap mount namespace, or cleanup pass.
-
-`agent-landlock` fails closed if Landlock is unavailable or if the kernel exposes an
-ABI older than v3. ABI v3 is required so truncation is restricted.
-
-## Usage
+## Install
 
 ```sh
 go build -o agent-landlock ./cmd/agent-landlock
+```
 
+## Quick start
+
+```sh
 agent-landlock doctor                  # verify Landlock is available
 agent-landlock doctor --heal           # initialize state and repair ~/.claude/CLAUDE.md
-agent-landlock                         # show help
 
 agent-landlock claude                  # start Claude interactively
 agent-landlock claude -p "summarize this repo"
 agent-landlock codex exec "summarize this repo"
-agent-landlock run -- pytest -x        # run an arbitrary command under Landlock
+agent-landlock run -- pytest -x        # arbitrary command under Landlock
+
 agent-landlock -d ~/src/project run -- npm test
 agent-landlock -g ~/.cache/my-tool run -- ./build.sh
-
-agent-landlock grant ~/.npm            # persistent writable path
-agent-landlock grants
-agent-landlock revoke ~/.npm
 ```
 
-Running `agent-landlock` with no command prints help. Start agents explicitly,
-for example `agent-landlock claude` or `agent-landlock codex`. If an explicit
-interactive agent launch appears to hang, the underlying agent is waiting for
-input or blocked during its own startup. Use a non-interactive agent subcommand
-such as `claude -p` or `codex exec` to isolate that from the wrapper.
+Running `agent-landlock` with no command prints help. If an interactive agent
+launch appears to hang, the agent itself is waiting for input or stuck during
+its own startup — try `claude -p` or `codex exec` to isolate that from the
+wrapper.
 
-Known agent invocations force no-prompt mode unless `--no-yolo` is passed:
+## How it works
 
-- Claude: `--dangerously-skip-permissions`
-- Codex: `--dangerously-bypass-approvals-and-sandbox`
-- Gemini: `--approval-mode yolo --skip-trust`, plus `GEMINI_SANDBOX=false`
+The boundary is **write-oriented, not read-oriented**. Landlock is
+process-local — there is no host state to clean up.
 
-For Claude, `agent-landlock` also sets `CLAUDE_CONFIG_DIR=~/.claude` unless
-that variable is already set. If `~/.claude.json` exists and
-`~/.claude/.claude.json` does not, the top-level file is copied into the
-writable Claude state directory before Landlock is applied. This avoids granting
-write access to all of `$HOME` just so Claude can update its config.
-`agent-landlock doctor --heal` also repairs a managed runtime-instructions block
+**Reads** — the process sees what your user can normally see across `/`.
+
+**Writes** are allowed in:
+
+- The project directory selected by `--dir` or `$PWD`.
+- Any path passed with `--grant` (one-shot) or recorded by `agent-landlock grant`
+  (persistent, stored as records under `~/.local/state/agent-landlock/grants.json` —
+  does not mutate filesystem ACLs).
+- System-managed roots: `/tmp`, `/dev`, `/proc`, `/sys`, `/run`, `/etc`, `/usr`,
+  `/var`, `/media`, `/mnt`. These remain writable only to the extent normal
+  Unix permissions, ACLs, mode bits, and device permissions already allow —
+  Landlock never makes them more permissive.
+- Known-agent state directories: `~/.claude`, `~/.codex`, `~/.gemini`. Claude
+  additionally gets `~/.local/state/claude` for its runtime locks.
+
+**Blocked** in any ungranted user or workspace path: file creation, write-open,
+truncation, unlink, rename, and other directory mutations.
+
+### Caveat
+
+Landlock does not currently restrict every metadata operation. Kernel
+documentation calls out `stat`, `chmod`, `chown`, `utime`, some `ioctl`, and
+`fcntl` as outside its filesystem access controls. `agent-landlock` is designed
+to stop ungranted filesystem writes — not to hide secrets or provide a
+container boundary.
+
+## Agent wrappers
+
+Known-agent subcommands force no-prompt mode unless `--no-yolo` is passed:
+
+| Agent     | Forced flags / env                                                       |
+|-----------|--------------------------------------------------------------------------|
+| `claude`  | `--dangerously-skip-permissions`                                         |
+| `codex`   | `--dangerously-bypass-approvals-and-sandbox`                             |
+| `gemini`  | `--approval-mode yolo --skip-trust`, plus `GEMINI_SANDBOX=false`         |
+
+For `claude` specifically the wrapper also sets `CLAUDE_CONFIG_DIR=~/.claude`
+(unless already set) and, if `~/.claude.json` exists but
+`~/.claude/.claude.json` does not, copies the top-level config into the
+writable Claude state directory before Landlock is applied. This avoids
+granting write access to all of `$HOME` just so Claude can update its config.
+
+`agent-landlock doctor --heal` repairs a managed runtime-instructions block
 inside `~/.claude/CLAUDE.md` so global Claude sessions know to keep fallback
 writes inside the current workspace when Landlock denies an outside path. User
 content outside that marked block is preserved.
 
+## Persistent grants
+
+```sh
+agent-landlock grant ~/.npm            # add
+agent-landlock grants                  # list
+agent-landlock revoke ~/.npm           # remove
+```
+
 ## Config
 
-Config search order:
+Search order:
 
 1. built-in defaults
 2. `/etc/agent-landlock/config`
 3. `~/.config/agent-landlock/config`
-4. environment variables with the `AGENT_LANDLOCK_` prefix
+4. environment variables prefixed `AGENT_LANDLOCK_`
 
 Supported keys:
 
@@ -88,18 +116,16 @@ SAFETY_DENY_PATHS="/ /root"
 EXTRA_ENV='RUSTC_WRAPPER=sccache'
 ```
 
-Environment equivalents include `AGENT_LANDLOCK_SAFETY_DENY_PATHS` and
+Environment equivalents: `AGENT_LANDLOCK_SAFETY_DENY_PATHS`,
 `AGENT_LANDLOCK_EXTRA_ENV`.
 
 ## Tests
-
-The Go tests are separate from the old Python ACL tests:
 
 ```sh
 GOCACHE=/tmp/agent-landlock-gocache go test ./...
 ```
 
-The Landlock e2e suite is separate too:
+Landlock e2e suite (requires kernel ABI v3+):
 
 ```sh
 test/e2e/run.sh
@@ -107,45 +133,24 @@ test/e2e/docker-run.sh test
 ```
 
 `test/e2e/run.sh` builds with a local temporary binary and sets
-`GOCACHE=/tmp/agent-landlock-gocache` automatically if `GOCACHE` is not already
-set. It checks project writes, runtime grants, persistent grants, grant revocation,
-known-agent state directories, forced YOLO argv/env, config-file defaults,
-parallel runs, status/doctor output, safety-denied paths, and timed grant
-cleanup. It requires a Linux kernel with Landlock ABI v3 or newer. The Docker
+`GOCACHE=/tmp/agent-landlock-gocache` automatically. It covers project writes,
+runtime grants, persistent grants, grant revocation, known-agent state
+directories, forced YOLO argv/env, config-file defaults, parallel runs,
+status/doctor output, safety-denied paths, and timed grant cleanup. The Docker
 runner uses an unconfined seccomp profile because some default container
 profiles block Landlock syscalls.
 
-Real-agent e2e tests can use host credentials and make live model requests.
-They run as part of `test/e2e/run.sh` by default and fail if selected tools are
-not installed, authenticated, reachable, responsive before the per-agent timeout,
-or able to follow the boundary-write prompt. They may spend API quota when host
-auth is available:
+Real-agent tests can use host credentials and make live model requests. They
+run as part of `test/e2e/run.sh` by default and fail if selected tools are not
+installed, authenticated, reachable, responsive within the per-agent timeout,
+or able to follow the boundary-write prompt. They may spend API quota:
 
 ```sh
-test/e2e/run.sh
 test/e2e/run.sh --skip-real-agents
 test/e2e/run.sh --real-agent-tools claude,codex --real-agent-timeout 120
 ```
 
 The real-agent test preserves the host `HOME`/auth state, creates a temporary
 project and outside directory, and asks each selected agent to perform one
-allowed write plus one forbidden outside write. Use `--skip-real-agents` to
-disable this live test on machines without usable real-agent auth. Use
+allowed write plus one forbidden outside write. Use
 `--keep-real-agent-fixture` to keep the temp files after a run.
-
-## Landlock Notes
-
-`agent-landlock` grants read access to `/`, write access to selected writable
-roots, and write access to system-managed roots such as `/tmp`, `/dev`, `/proc`,
-`/sys`, `/run`, `/etc`, `/usr`, `/var`, `/media`, and `/mnt`. The system roots
-are still controlled by Unix ownership, mode bits, ACLs, groups, and device
-permissions; Landlock does not make them more writable than they already are.
-This preserves normal tool visibility and runtime behavior while blocking file
-creation, write-open, truncation, unlink, rename, and other directory mutations
-in ungranted user/workspace paths.
-
-Landlock does not currently restrict every metadata operation. Kernel
-documentation calls out operations such as `stat`, `chmod`, `chown`, `utime`,
-some `ioctl`, and `fcntl` as outside current filesystem access controls. This
-tool is designed to stop ungranted filesystem writes, not to hide secrets or
-provide a container boundary.
