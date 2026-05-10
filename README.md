@@ -35,6 +35,7 @@ ABI older than v3. ABI v3 is required so truncation is restricted.
 go build -o agent-landlock ./cmd/agent-landlock
 
 agent-landlock doctor                  # verify Landlock is available
+agent-landlock doctor --heal           # initialize state and repair ~/.claude/CLAUDE.md
 agent-landlock                         # show help
 
 agent-landlock claude                  # start Claude interactively
@@ -66,6 +67,10 @@ that variable is already set. If `~/.claude.json` exists and
 `~/.claude/.claude.json` does not, the top-level file is copied into the
 writable Claude state directory before Landlock is applied. This avoids granting
 write access to all of `$HOME` just so Claude can update its config.
+`agent-landlock doctor --heal` also repairs a managed runtime-instructions block
+inside `~/.claude/CLAUDE.md` so global Claude sessions know to keep fallback
+writes inside the current workspace when Landlock denies an outside path. User
+content outside that marked block is preserved.
 
 ## Config
 

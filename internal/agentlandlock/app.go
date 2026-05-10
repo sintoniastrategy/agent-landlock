@@ -361,8 +361,28 @@ func (a App) doctor(inv Invocation) (int, error) {
 		return ExitLandlockUnavailable, nil
 	}
 	if inv.Heal {
-		if _, err := ensureStateDir(); err != nil {
-			return ExitGeneric, err
+		if inv.Common.DryRun {
+			if state != "" {
+				fmt.Fprintf(a.Stdout, "DRY-RUN: mkdir -p %s\n", state)
+			}
+		} else {
+			if _, err := ensureStateDir(); err != nil {
+				return ExitGeneric, err
+			}
+		}
+		path, status, err := healGlobalClaudeInstructions(inv.Common.DryRun)
+		if err != nil {
+			return exitCode(err), err
+		}
+		fmt.Fprintf(a.Stdout, "global CLAUDE.md: %s (%s)\n", status, path)
+	} else {
+		path, status, err := checkGlobalClaudeInstructions()
+		if err == nil {
+			if status == "ok" {
+				fmt.Fprintf(a.Stdout, "global CLAUDE.md: ok (%s)\n", path)
+			} else {
+				fmt.Fprintf(a.Stdout, "global CLAUDE.md: %s; run doctor --heal (%s)\n", status, path)
+			}
 		}
 	}
 	fmt.Fprintln(a.Stdout, "result          : ok")
