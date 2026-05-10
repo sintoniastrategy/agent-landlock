@@ -80,10 +80,15 @@ The Landlock e2e suite is separate too:
 
 ```sh
 e2e-agent-lsm/run.sh
+e2e-agent-lsm/docker-run.sh test
 ```
 
-It checks project writes, runtime grants, persistent grants, and known-agent
-state directories. It requires a Linux kernel with Landlock ABI v3 or newer.
+It checks project writes, runtime grants, persistent grants, grant revocation,
+known-agent state directories, forced YOLO argv/env, config-file defaults,
+parallel runs, status/doctor output, safety-denied paths, and timed grant
+cleanup. It requires a Linux kernel with Landlock ABI v3 or newer. The Docker
+runner uses an unconfined seccomp profile because some default container
+profiles block Landlock syscalls.
 
 ## Landlock Notes
 

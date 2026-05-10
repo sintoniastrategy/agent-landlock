@@ -66,6 +66,16 @@ func TestParseDoctorHeal(t *testing.T) {
 	}
 }
 
+func TestParseGrantPathThenTimeout(t *testing.T) {
+	inv, err := ParseArgs([]string{"grant", "/cache", "--timeout=30s"}, DefaultConfig())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inv.Command != "grant" || inv.Path != "/cache" || inv.Common.Timeout != "30s" {
+		t.Fatalf("unexpected invocation: %#v", inv)
+	}
+}
+
 func sameStrings(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

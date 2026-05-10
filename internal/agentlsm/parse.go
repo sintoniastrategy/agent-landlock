@@ -141,28 +141,34 @@ func parseShell(argv []string, common CommonOptions) (Invocation, error) {
 }
 
 func parsePathCommand(name string, argv []string, common CommonOptions) (Invocation, error) {
-	c, rest, err := consumeCommon(argv, common)
-	if err != nil {
-		return Invocation{}, err
-	}
+	c := common
 	heal := false
-	if name == "doctor" {
-		filtered := rest[:0]
-		for _, item := range rest {
-			if item == "--heal" {
-				heal = true
-				continue
-			}
-			filtered = append(filtered, item)
-		}
-		rest = filtered
-	}
-	if len(rest) > 1 {
-		return Invocation{}, exitError(ExitUsage, fmt.Sprintf("%s: unexpected argument: %s", name, rest[1]))
-	}
 	path := ""
-	if len(rest) == 1 {
-		path = rest[0]
+	args := append([]string(nil), argv...)
+	for len(args) > 0 {
+		if args[0] == "--" {
+			args = args[1:]
+			continue
+		}
+		if name == "doctor" && args[0] == "--heal" {
+			heal = true
+			args = args[1:]
+			continue
+		}
+		nextCommon, rest, err := consumeCommon(args, c)
+		if err != nil {
+			return Invocation{}, err
+		}
+		if len(rest) < len(args) {
+			c = nextCommon
+			args = rest
+			continue
+		}
+		if path != "" {
+			return Invocation{}, exitError(ExitUsage, fmt.Sprintf("%s: unexpected argument: %s", name, args[0]))
+		}
+		path = args[0]
+		args = args[1:]
 	}
 	return Invocation{Command: name, Path: path, Heal: heal, Common: c}, nil
 }

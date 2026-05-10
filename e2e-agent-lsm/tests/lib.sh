@@ -19,6 +19,24 @@ assert_contains() {
   [[ "$haystack" == *"$needle"* ]] || fail "expected output to contain: $needle"
 }
 
+assert_not_contains() {
+  local haystack=$1
+  local needle=$2
+  [[ "$haystack" != *"$needle"* ]] || fail "expected output not to contain: $needle"
+}
+
+wait_until() {
+  local timeout=$1
+  shift
+  local start=$SECONDS
+  until "$@"; do
+    if (( SECONDS - start >= timeout )); then
+      return 1
+    fi
+    sleep 0.1
+  done
+}
+
 new_fixture() {
   FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/agent-lsm-fixture.XXXXXX")
   export HOME="$FIXTURE/home"
