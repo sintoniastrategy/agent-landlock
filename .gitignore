@@ -1,5 +1,6 @@
 # Build artifacts
 /agent-landlock
+/dist/
 
 # Agent tool state
 .agents/

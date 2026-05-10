@@ -1,0 +1,25 @@
+version: 2
+
+builds:
+  - main: ./cmd/agent-landlock
+    binary: agent-landlock
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: sintoniastrategy
+    name: agent-landlock
