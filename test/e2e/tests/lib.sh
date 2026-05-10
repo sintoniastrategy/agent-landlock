@@ -5,6 +5,10 @@ fail() {
   exit 1
 }
 
+log() {
+  printf '[agent-landlock-e2e] %s\n' "$*" >&2
+}
+
 assert_file() {
   [[ -f "$1" ]] || fail "missing file: $1"
 }

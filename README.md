@@ -98,12 +98,32 @@ test/e2e/run.sh
 test/e2e/docker-run.sh test
 ```
 
-It checks project writes, runtime grants, persistent grants, grant revocation,
+`test/e2e/run.sh` builds with a local temporary binary and sets
+`GOCACHE=/tmp/agent-landlock-gocache` automatically if `GOCACHE` is not already
+set. It checks project writes, runtime grants, persistent grants, grant revocation,
 known-agent state directories, forced YOLO argv/env, config-file defaults,
 parallel runs, status/doctor output, safety-denied paths, and timed grant
 cleanup. It requires a Linux kernel with Landlock ABI v3 or newer. The Docker
 runner uses an unconfined seccomp profile because some default container
 profiles block Landlock syscalls.
+
+Real-agent e2e tests can use host credentials and make live model requests.
+They run as part of `test/e2e/run.sh` by default and fail if selected tools are
+not installed, authenticated, reachable, responsive before the per-agent timeout,
+or able to follow the boundary-write prompt. They may spend API quota when host
+auth is available:
+
+```sh
+test/e2e/run.sh
+test/e2e/run.sh --skip-real-agents
+test/e2e/run.sh --real-agent-tools claude,codex --real-agent-timeout 120
+```
+
+The real-agent test preserves the host `HOME`/auth state, creates a temporary
+project and outside directory, and asks each selected agent to perform one
+allowed write plus one forbidden outside write. Use `--skip-real-agents` to
+disable this live test on machines without usable real-agent auth. Use
+`--keep-real-agent-fixture` to keep the temp files after a run.
 
 ## Landlock Notes
 
