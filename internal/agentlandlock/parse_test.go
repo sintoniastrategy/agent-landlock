@@ -2,18 +2,35 @@ package agentlandlock
 
 import "testing"
 
-func TestParseDefaultAgent(t *testing.T) {
-	inv, err := ParseArgs(nil, Config{DefaultAgent: "codex"})
+func TestParseNoArgsShowsHelp(t *testing.T) {
+	inv, err := ParseArgs(nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if inv.Command != "agent" || inv.Agent != "codex" {
+	if inv.Command != "help" {
 		t.Fatalf("unexpected invocation: %#v", inv)
 	}
 }
 
+func TestParseTopLevelHelpFlag(t *testing.T) {
+	inv, err := ParseArgs([]string{"--help"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inv.Command != "help" {
+		t.Fatalf("command = %s, want help", inv.Command)
+	}
+}
+
+func TestParseUnknownCommandDoesNotDefaultToAgent(t *testing.T) {
+	_, err := ParseArgs([]string{"--print"})
+	if err == nil {
+		t.Fatal("expected unknown command error")
+	}
+}
+
 func TestParseAgentPassthroughStopsAtUnknownFlag(t *testing.T) {
-	inv, err := ParseArgs([]string{"claude", "--model", "opus", "--dry-run"}, DefaultConfig())
+	inv, err := ParseArgs([]string{"claude", "--model", "opus", "--dry-run"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -27,7 +44,7 @@ func TestParseAgentPassthroughStopsAtUnknownFlag(t *testing.T) {
 }
 
 func TestParseAgentWrapperFlagBeforeAgentArgs(t *testing.T) {
-	inv, err := ParseArgs([]string{"claude", "--dry-run", "--", "--continue"}, DefaultConfig())
+	inv, err := ParseArgs([]string{"claude", "--dry-run", "--", "--continue"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +58,7 @@ func TestParseAgentWrapperFlagBeforeAgentArgs(t *testing.T) {
 }
 
 func TestParseRunWithRuntimeGrant(t *testing.T) {
-	inv, err := ParseArgs([]string{"-g", "/cache", "run", "--", "bash", "-lc", "true"}, DefaultConfig())
+	inv, err := ParseArgs([]string{"-g", "/cache", "run", "--", "bash", "-lc", "true"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +74,7 @@ func TestParseRunWithRuntimeGrant(t *testing.T) {
 }
 
 func TestParseDoctorHeal(t *testing.T) {
-	inv, err := ParseArgs([]string{"doctor", "--heal", "/work"}, DefaultConfig())
+	inv, err := ParseArgs([]string{"doctor", "--heal", "/work"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +84,7 @@ func TestParseDoctorHeal(t *testing.T) {
 }
 
 func TestParseGrantPathThenTimeout(t *testing.T) {
-	inv, err := ParseArgs([]string{"grant", "/cache", "--timeout=30s"}, DefaultConfig())
+	inv, err := ParseArgs([]string{"grant", "/cache", "--timeout=30s"})
 	if err != nil {
 		t.Fatal(err)
 	}

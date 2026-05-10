@@ -15,7 +15,8 @@ The boundary is write-oriented, not read-oriented.
   `$PWD`.
 - The process can write additional directories passed with `--grant`.
 - Known agents get their own state directory writable by default:
-  `~/.claude`, `~/.codex`, or `~/.gemini`.
+  `~/.claude`, `~/.codex`, or `~/.gemini`. Claude also gets
+  `~/.local/state/claude` for its runtime locks.
 - Persistent grants are records under `~/.local/state/agent-landlock/grants.json`.
   They do not mutate filesystem ACLs.
 
@@ -30,23 +31,38 @@ ABI older than v3. ABI v3 is required so truncation is restricted.
 ```sh
 go build -o agent-landlock ./cmd/agent-landlock
 
-agent-landlock                         # default agent, claude
-agent-landlock codex --model gpt-5.2
-agent-landlock run -- pytest -x
+agent-landlock doctor                  # verify Landlock is available
+agent-landlock                         # show help
+
+agent-landlock claude                  # start Claude interactively
+agent-landlock claude -p "summarize this repo"
+agent-landlock codex exec "summarize this repo"
+agent-landlock run -- pytest -x        # run an arbitrary command under Landlock
 agent-landlock -d ~/src/project run -- npm test
 agent-landlock -g ~/.cache/my-tool run -- ./build.sh
 
 agent-landlock grant ~/.npm            # persistent writable path
 agent-landlock grants
 agent-landlock revoke ~/.npm
-agent-landlock doctor
 ```
+
+Running `agent-landlock` with no command prints help. Start agents explicitly,
+for example `agent-landlock claude` or `agent-landlock codex`. If an explicit
+interactive agent launch appears to hang, the underlying agent is waiting for
+input or blocked during its own startup. Use a non-interactive agent subcommand
+such as `claude -p` or `codex exec` to isolate that from the wrapper.
 
 Known agent invocations force no-prompt mode unless `--no-yolo` is passed:
 
 - Claude: `--dangerously-skip-permissions`
 - Codex: `--dangerously-bypass-approvals-and-sandbox`
 - Gemini: `--approval-mode yolo --skip-trust`, plus `GEMINI_SANDBOX=false`
+
+For Claude, `agent-landlock` also sets `CLAUDE_CONFIG_DIR=~/.claude` unless
+that variable is already set. If `~/.claude.json` exists and
+`~/.claude/.claude.json` does not, the top-level file is copied into the
+writable Claude state directory before Landlock is applied. This avoids granting
+write access to all of `$HOME` just so Claude can update its config.
 
 ## Config
 
@@ -60,13 +76,12 @@ Config search order:
 Supported keys:
 
 ```sh
-DEFAULT_AGENT=claude
 SAFETY_DENY_PATHS="/ /etc /var /usr /opt /boot /dev /proc /sys /root"
 EXTRA_ENV='RUSTC_WRAPPER=sccache'
 ```
 
-Environment equivalents include `AGENT_LANDLOCK_DEFAULT_AGENT`,
-`AGENT_LANDLOCK_SAFETY_DENY_PATHS`, and `AGENT_LANDLOCK_EXTRA_ENV`.
+Environment equivalents include `AGENT_LANDLOCK_SAFETY_DENY_PATHS` and
+`AGENT_LANDLOCK_EXTRA_ENV`.
 
 ## Tests
 

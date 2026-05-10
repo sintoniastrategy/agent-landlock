@@ -150,7 +150,7 @@ func uniquePruned(paths []string) []string {
 	return cleaned
 }
 
-func ensureAgentStateDirs(agent string, noAgentState bool) ([]string, error) {
+func ensureAgentStateDirs(agent string, noAgentState bool, dryRun bool) ([]string, error) {
 	if noAgentState {
 		return nil, nil
 	}
@@ -161,8 +161,16 @@ func ensureAgentStateDirs(agent string, noAgentState bool) ([]string, error) {
 	var out []string
 	for _, rel := range agentStateDirs[agent] {
 		path := filepath.Join(home, rel)
-		if st, err := os.Lstat(path); err == nil && st.Mode()&os.ModeSymlink != 0 {
-			return nil, exitError(ExitSafety, fmt.Sprintf("refusing symlinked agent state directory: %s", path))
+		if err := refuseSymlink(path, "refusing symlinked agent state directory"); err != nil {
+			return nil, err
+		}
+		if dryRun {
+			if resolved, err := resolveExistingDir(path); err == nil {
+				out = append(out, resolved)
+			} else {
+				out = append(out, filepath.Clean(path))
+			}
+			continue
 		}
 		if err := os.MkdirAll(path, 0o700); err != nil {
 			return nil, err

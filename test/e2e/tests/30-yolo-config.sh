@@ -19,6 +19,7 @@ cat >"$bin_dir/gemini" <<'SH'
 set -Eeuo pipefail
 printf '%s\n' "$@" > "$PROJECT_OUT/gemini.args"
 printf '%s\n' "${GEMINI_SANDBOX:-}" > "$PROJECT_OUT/gemini.sandbox"
+printf '%s\n' "${FROM_CONFIG:-}" > "$PROJECT_OUT/gemini.from-config"
 SH
 chmod +x "$bin_dir/codex" "$bin_dir/gemini"
 
@@ -34,11 +35,12 @@ codex_no_yolo=$(cat "$PROJECT/codex.args")
 assert_not_contains "$codex_no_yolo" "--dangerously-bypass-approvals-and-sandbox"
 
 mkdir -p "$XDG_CONFIG_HOME/agent-landlock"
-printf 'DEFAULT_AGENT=gemini\n' > "$XDG_CONFIG_HOME/agent-landlock/config"
+printf 'EXTRA_ENV=FROM_CONFIG=yes\n' > "$XDG_CONFIG_HOME/agent-landlock/config"
 PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
-  "$AGENT_LANDLOCK_BIN" -d "$PROJECT" -- --prompt hi
+  "$AGENT_LANDLOCK_BIN" -d "$PROJECT" gemini -- --prompt hi
 gemini_args=$(cat "$PROJECT/gemini.args")
 assert_contains "$gemini_args" "--approval-mode"
 assert_contains "$gemini_args" "yolo"
 assert_contains "$gemini_args" "--skip-trust"
 assert_contains "$(cat "$PROJECT/gemini.sandbox")" "false"
+assert_contains "$(cat "$PROJECT/gemini.from-config")" "yes"

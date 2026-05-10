@@ -28,25 +28,23 @@ type Invocation struct {
 	Common  CommonOptions
 }
 
-func ParseArgs(argv []string, cfg Config) (Invocation, error) {
+func ParseArgs(argv []string) (Invocation, error) {
 	common, rest, err := consumeCommon(argv, CommonOptions{})
 	if err != nil {
 		return Invocation{}, err
 	}
 	if len(rest) == 0 {
-		return Invocation{Command: "agent", Agent: cfg.DefaultAgent, Common: common}, nil
+		return Invocation{Command: "help", Common: common}, nil
 	}
 	first := rest[0]
+	if first == "-h" || first == "--help" {
+		return Invocation{Command: "help", Common: common}, nil
+	}
 	if KnownAgents[first] {
 		return parseAgent(first, rest[1:], common)
 	}
 	if !knownSubcommands[first] {
-		return Invocation{
-			Command: "agent",
-			Agent:   cfg.DefaultAgent,
-			Args:    rest,
-			Common:  common,
-		}, nil
+		return Invocation{}, exitError(ExitUsage, fmt.Sprintf("unknown command: %s", first))
 	}
 	switch first {
 	case "run":

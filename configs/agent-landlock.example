@@ -10,10 +10,6 @@
 # stripped. Full-line comments start with '#'; inline comments are part of the
 # value.
 
-# Default agent invoked when 'agent-landlock' is run with no subcommand.
-# Must be one of: claude, codex, gemini.
-DEFAULT_AGENT=claude
-
 # Paths that cannot be made writable unless --force is passed.
 SAFETY_DENY_PATHS=/ /etc /var /usr /opt /boot /dev /proc /sys /root
 

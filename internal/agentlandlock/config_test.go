@@ -5,12 +5,12 @@ import "testing"
 func TestParseConfigText(t *testing.T) {
 	kv := ParseConfigText(`
 # comment
-DEFAULT_AGENT=gemini
+SAFETY_DENY_PATHS="/ /etc /root"
 EXTRA_ENV="FOO=hello BAR=baz"
 BAD line
 `)
-	if kv["DEFAULT_AGENT"] != "gemini" {
-		t.Fatalf("DEFAULT_AGENT = %q", kv["DEFAULT_AGENT"])
+	if kv["SAFETY_DENY_PATHS"] != "/ /etc /root" {
+		t.Fatalf("SAFETY_DENY_PATHS = %q", kv["SAFETY_DENY_PATHS"])
 	}
 	if kv["EXTRA_ENV"] != "FOO=hello BAR=baz" {
 		t.Fatalf("EXTRA_ENV = %q", kv["EXTRA_ENV"])
@@ -31,13 +31,9 @@ func TestShellFieldsQuotes(t *testing.T) {
 func TestApplyConfigEnvNames(t *testing.T) {
 	cfg := DefaultConfig()
 	applyConfig(&cfg, map[string]string{
-		"DEFAULT_AGENT":            "codex",
 		"SAFETY_DENY_PATHS":        "/ /etc /root",
 		"AGENT_LANDLOCK_EXTRA_ENV": "FOO=bar",
 	})
-	if cfg.DefaultAgent != "codex" {
-		t.Fatalf("DefaultAgent = %q", cfg.DefaultAgent)
-	}
 	if !sameStrings(cfg.SafetyDenyPaths, []string{"/", "/etc", "/root"}) {
 		t.Fatalf("SafetyDenyPaths = %#v", cfg.SafetyDenyPaths)
 	}

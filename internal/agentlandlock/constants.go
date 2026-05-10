@@ -39,7 +39,7 @@ var agentYoloArgs = map[string][]string{
 }
 
 var agentStateDirs = map[string][]string{
-	"claude": {".claude"},
+	"claude": {".claude", ".local/state/claude"},
 	"codex":  {".codex"},
 	"gemini": {".gemini"},
 }

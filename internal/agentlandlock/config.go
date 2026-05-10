@@ -8,14 +8,12 @@ import (
 )
 
 type Config struct {
-	DefaultAgent    string
 	SafetyDenyPaths []string
 	ExtraEnv        string
 }
 
 func DefaultConfig() Config {
 	return Config{
-		DefaultAgent:    "claude",
 		SafetyDenyPaths: append([]string(nil), defaultSafetyDenyPaths...),
 	}
 }
@@ -97,9 +95,6 @@ func configPaths() []string {
 }
 
 func applyConfig(cfg *Config, kv map[string]string) {
-	if v := strings.TrimSpace(kv["DEFAULT_AGENT"]); v != "" {
-		cfg.DefaultAgent = v
-	}
 	if v, ok := kv["SAFETY_DENY_PATHS"]; ok {
 		if fields, err := shellFields(v); err == nil {
 			cfg.SafetyDenyPaths = fields

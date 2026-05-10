@@ -21,7 +21,7 @@ type App struct {
 
 func Main(argv []string) (int, error) {
 	cfg := LoadConfig()
-	inv, err := ParseArgs(argv, cfg)
+	inv, err := ParseArgs(argv)
 	if err != nil {
 		return exitCode(err), err
 	}
@@ -108,6 +108,9 @@ func (a App) execute(inv Invocation, cmdArgs []string, agent string) (int, error
 	if err != nil {
 		return ExitUsage, err
 	}
+	if err := prepareAgentEnv(agent, env, inv.Common.NoAgentState, inv.Common.DryRun); err != nil {
+		return exitCode(err), err
+	}
 	cmdArgs, err = forceAgentYolo(cmdArgs, agent, env, inv.Common.NoYolo)
 	if err != nil {
 		return exitCode(err), err
@@ -118,7 +121,7 @@ func (a App) execute(inv Invocation, cmdArgs []string, agent string) (int, error
 	}
 	policy := SandboxPolicy{ReadOnlyRoot: true, Writable: writable}
 	if inv.Common.DryRun {
-		a.printDryRun(workdir, cmdArgs, policy)
+		a.printDryRun(workdir, cmdArgs, policy, env)
 		return ExitOK, nil
 	}
 	if err := applySandbox(policy); err != nil {
@@ -175,7 +178,7 @@ func (a App) writableRoots(inv Invocation, workdir string, agent string) ([]stri
 		}
 		writable = append(writable, path)
 	}
-	stateDirs, err := ensureAgentStateDirs(agent, inv.Common.NoAgentState || agent == "")
+	stateDirs, err := ensureAgentStateDirs(agent, inv.Common.NoAgentState || agent == "", inv.Common.DryRun)
 	if err != nil {
 		return nil, err
 	}
@@ -183,12 +186,15 @@ func (a App) writableRoots(inv Invocation, workdir string, agent string) ([]stri
 	return uniquePruned(writable), nil
 }
 
-func (a App) printDryRun(workdir string, cmdArgs []string, policy SandboxPolicy) {
+func (a App) printDryRun(workdir string, cmdArgs []string, policy SandboxPolicy, env map[string]string) {
 	fmt.Fprintf(a.Stdout, "DRY-RUN: chdir %s\n", shellQuote(workdir))
 	fmt.Fprintf(a.Stdout, "DRY-RUN: landlock read-only /\n")
 	fmt.Fprintf(a.Stdout, "DRY-RUN: landlock writable roots:\n")
 	for _, path := range policy.Writable {
 		fmt.Fprintf(a.Stdout, "  %s\n", path)
+	}
+	if value := env["CLAUDE_CONFIG_DIR"]; value != "" {
+		fmt.Fprintf(a.Stdout, "DRY-RUN: env CLAUDE_CONFIG_DIR=%s\n", shellQuote(value))
 	}
 	fmt.Fprintf(a.Stdout, "DRY-RUN: exec")
 	for _, arg := range cmdArgs {
@@ -393,7 +399,7 @@ func helpText() string {
 	return fmt.Sprintf(`agent-landlock: run AI agents under a Linux Landlock write boundary
 
 usage:
-  agent-landlock [FLAGS] [claude|codex|gemini] [-- AGENT_ARGS...]
+  agent-landlock [FLAGS] claude|codex|gemini [-- AGENT_ARGS...]
   agent-landlock [FLAGS] run -- CMD ARGS...
   agent-landlock grant PATH [--timeout=30m]
   agent-landlock revoke PATH
@@ -412,6 +418,9 @@ common flags:
 commands: %s
 state:    ~/.local/state/agent-landlock/
 config:   /etc/agent-landlock/config, ~/.config/agent-landlock/config
+
+note: running agent-landlock with no command prints this help. Start an agent
+      explicitly, for example: agent-landlock claude
 `, strings.Join(cmds, ", "))
 }
 
