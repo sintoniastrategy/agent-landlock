@@ -1,6 +1,12 @@
 # Build artifacts
 /agent-landlock
 
+# Agent tool state
+.agents/
+.claude/
+.codex/
+.gemini/
+
 # Go
 *.exe
 *.exe~
