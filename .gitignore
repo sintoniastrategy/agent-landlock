@@ -1,6 +1,37 @@
+# Build artifacts
+/agent-landlock
+
+# Go
+*.exe
+*.exe~
+*.test
+*.out
+go.work
+go.work.sum
+
+# Python
 __pycache__/
-*.pyc
-*.pyo
+*.py[cod]
+*$py.class
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Vim
+*.swp
+*.swo
+*~
+.*.sw?
+Session.vim
