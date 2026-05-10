@@ -1,4 +1,4 @@
-module github.com/rv/agent-lsm
+module github.com/rv/agent-landlock
 
 go 1.24.0
 

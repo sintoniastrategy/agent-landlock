@@ -1,8 +1,8 @@
-# agent-lsm
+# agent-landlock
 
 Run AI coding agents under a Linux Landlock write boundary.
 
-`agent-lsm` runs the child process as the current Unix user, keeps normal file
+`agent-landlock` runs the child process as the current Unix user, keeps normal file
 ownership, and uses the kernel Landlock LSM to make the host filesystem
 read-only except for explicitly writable directories.
 
@@ -16,30 +16,30 @@ The boundary is write-oriented, not read-oriented.
 - The process can write additional directories passed with `--grant`.
 - Known agents get their own state directory writable by default:
   `~/.claude`, `~/.codex`, or `~/.gemini`.
-- Persistent grants are records under `~/.local/state/agent-lsm/grants.json`.
+- Persistent grants are records under `~/.local/state/agent-landlock/grants.json`.
   They do not mutate filesystem ACLs.
 
 Landlock is process-local. There is no paired Unix user, sudoers drop-in,
 recursive `setfacl`, bwrap mount namespace, or cleanup pass.
 
-`agent-lsm` fails closed if Landlock is unavailable or if the kernel exposes an
+`agent-landlock` fails closed if Landlock is unavailable or if the kernel exposes an
 ABI older than v3. ABI v3 is required so truncation is restricted.
 
 ## Usage
 
 ```sh
-go build -o agent-lsm ./cmd/agent-lsm
+go build -o agent-landlock ./cmd/agent-landlock
 
-agent-lsm                         # default agent, claude
-agent-lsm codex --model gpt-5.2
-agent-lsm run -- pytest -x
-agent-lsm -d ~/src/project run -- npm test
-agent-lsm -g ~/.cache/my-tool run -- ./build.sh
+agent-landlock                         # default agent, claude
+agent-landlock codex --model gpt-5.2
+agent-landlock run -- pytest -x
+agent-landlock -d ~/src/project run -- npm test
+agent-landlock -g ~/.cache/my-tool run -- ./build.sh
 
-agent-lsm grant ~/.npm            # persistent writable path
-agent-lsm grants
-agent-lsm revoke ~/.npm
-agent-lsm doctor
+agent-landlock grant ~/.npm            # persistent writable path
+agent-landlock grants
+agent-landlock revoke ~/.npm
+agent-landlock doctor
 ```
 
 Known agent invocations force no-prompt mode unless `--no-yolo` is passed:
@@ -53,9 +53,9 @@ Known agent invocations force no-prompt mode unless `--no-yolo` is passed:
 Config search order:
 
 1. built-in defaults
-2. `/etc/agent-lsm/config`
-3. `~/.config/agent-lsm/config`
-4. environment variables with the `AGENT_LSM_` prefix
+2. `/etc/agent-landlock/config`
+3. `~/.config/agent-landlock/config`
+4. environment variables with the `AGENT_LANDLOCK_` prefix
 
 Supported keys:
 
@@ -65,22 +65,22 @@ SAFETY_DENY_PATHS="/ /etc /var /usr /opt /boot /dev /proc /sys /root"
 EXTRA_ENV='RUSTC_WRAPPER=sccache'
 ```
 
-Environment equivalents include `AGENT_LSM_DEFAULT_AGENT`,
-`AGENT_LSM_SAFETY_DENY_PATHS`, and `AGENT_LSM_EXTRA_ENV`.
+Environment equivalents include `AGENT_LANDLOCK_DEFAULT_AGENT`,
+`AGENT_LANDLOCK_SAFETY_DENY_PATHS`, and `AGENT_LANDLOCK_EXTRA_ENV`.
 
 ## Tests
 
 The Go tests are separate from the old Python ACL tests:
 
 ```sh
-GOCACHE=/tmp/agent-lsm-gocache go test ./...
+GOCACHE=/tmp/agent-landlock-gocache go test ./...
 ```
 
 The Landlock e2e suite is separate too:
 
 ```sh
-e2e-agent-lsm/run.sh
-e2e-agent-lsm/docker-run.sh test
+test/e2e/run.sh
+test/e2e/docker-run.sh test
 ```
 
 It checks project writes, runtime grants, persistent grants, grant revocation,
@@ -92,7 +92,7 @@ profiles block Landlock syscalls.
 
 ## Landlock Notes
 
-`agent-lsm` grants read access to `/` and write access only to selected writable
+`agent-landlock` grants read access to `/` and write access only to selected writable
 roots. This preserves normal tool visibility while blocking file creation,
 write-open, truncation, unlink, rename, and other directory mutations outside
 those roots.
