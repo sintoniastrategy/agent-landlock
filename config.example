@@ -1,0 +1,22 @@
+# agent-lsm configuration.
+#
+# Search order, later overrides earlier:
+#   1. built-in defaults
+#   2. /etc/agent-lsm/config
+#   3. ~/.config/agent-lsm/config
+#   4. environment variables (AGENT_LSM_<KEY>)
+#
+# Format: KEY=value, one per line. Optional matching quotes around values are
+# stripped. Full-line comments start with '#'; inline comments are part of the
+# value.
+
+# Default agent invoked when 'agent-lsm' is run with no subcommand.
+# Must be one of: claude, codex, gemini.
+DEFAULT_AGENT=claude
+
+# Paths that cannot be made writable unless --force is passed.
+SAFETY_DENY_PATHS=/ /etc /var /usr /opt /boot /dev /proc /sys /root
+
+# Extra environment exported to the child process. Space-separated VAR=value
+# tokens; single and double quotes are supported.
+EXTRA_ENV=
