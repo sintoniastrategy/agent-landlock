@@ -9,8 +9,9 @@ import (
 )
 
 type SandboxPolicy struct {
-	ReadOnlyRoot bool
-	Writable     []string
+	ReadOnlyRoot   bool
+	Writable       []string
+	SystemWritable []string
 }
 
 func LandlockABIVersion() (int, error) {
@@ -35,6 +36,9 @@ func applySandbox(policy SandboxPolicy) error {
 	rules := []landlock.Rule{landlock.RODirs("/").WithIoctlDev()}
 	if len(policy.Writable) > 0 {
 		rules = append(rules, landlock.RWDirs(policy.Writable...).WithRefer())
+	}
+	if len(policy.SystemWritable) > 0 {
+		rules = append(rules, landlock.RWDirs(policy.SystemWritable...).WithRefer().WithIoctlDev())
 	}
 	if err := cfg.RestrictPaths(rules...); err != nil {
 		return exitError(ExitLandlockUnavailable, fmt.Sprintf("could not enforce Landlock policy: %v", err))

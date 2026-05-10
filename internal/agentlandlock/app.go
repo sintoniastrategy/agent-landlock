@@ -119,7 +119,11 @@ func (a App) execute(inv Invocation, cmdArgs []string, agent string) (int, error
 	if err != nil {
 		return exitCode(err), err
 	}
-	policy := SandboxPolicy{ReadOnlyRoot: true, Writable: writable}
+	policy := SandboxPolicy{
+		ReadOnlyRoot:   true,
+		Writable:       writable,
+		SystemWritable: systemWritableRoots(defaultSystemWritablePaths),
+	}
 	if inv.Common.DryRun {
 		a.printDryRun(workdir, cmdArgs, policy, env)
 		return ExitOK, nil
@@ -191,6 +195,10 @@ func (a App) printDryRun(workdir string, cmdArgs []string, policy SandboxPolicy,
 	fmt.Fprintf(a.Stdout, "DRY-RUN: landlock read-only /\n")
 	fmt.Fprintf(a.Stdout, "DRY-RUN: landlock writable roots:\n")
 	for _, path := range policy.Writable {
+		fmt.Fprintf(a.Stdout, "  %s\n", path)
+	}
+	fmt.Fprintf(a.Stdout, "DRY-RUN: landlock system writable roots:\n")
+	for _, path := range policy.SystemWritable {
 		fmt.Fprintf(a.Stdout, "  %s\n", path)
 	}
 	if value := env["CLAUDE_CONFIG_DIR"]; value != "" {

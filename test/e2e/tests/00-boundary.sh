@@ -2,10 +2,15 @@
 set -Eeuo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/lib.sh"
-trap cleanup_fixture EXIT
+cleanup_boundary_fixture() {
+  rm -rf "${SYSTEM_TMP:-}"
+  cleanup_fixture
+}
+trap cleanup_boundary_fixture EXIT
 
 new_fixture
 require_landlock
+SYSTEM_TMP=$(mktemp -d /tmp/agent-landlock-system.XXXXXX)
 
 out=$("$AGENT_LANDLOCK_BIN" --no-agent-state -d "$PROJECT" -g "$GRANT_DIR" run -- bash -lc '
   set -Eeuo pipefail
@@ -22,6 +27,12 @@ assert_file "$PROJECT/project-write.txt"
 assert_file "$GRANT_DIR/grant-write.txt"
 assert_not_exists "$OUTSIDE/outside-write.txt"
 assert_contains "$out" "Permission denied"
+
+"$AGENT_LANDLOCK_BIN" --no-agent-state -d "$PROJECT" run -- bash -lc '
+  set -Eeuo pipefail
+  printf system > "$1/system-write.txt"
+' _ "$SYSTEM_TMP"
+assert_file "$SYSTEM_TMP/system-write.txt"
 
 owner=$(stat -c '%U:%G' "$PROJECT/project-write.txt")
 expected="$(id -un):$(id -gn)"

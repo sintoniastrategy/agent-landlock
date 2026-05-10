@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+E2E_REPO_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
+
 fail() {
   printf '[agent-landlock-e2e][fail] %s\n' "$*" >&2
   exit 1
@@ -42,7 +44,15 @@ wait_until() {
 }
 
 new_fixture() {
-  FIXTURE=$(mktemp -d "${TMPDIR:-/tmp}/agent-landlock-fixture.XXXXXX")
+  local fixture_parent
+  fixture_parent="${E2E_FIXTURE_PARENT:-$E2E_REPO_ROOT/.agent-landlock-e2e}"
+  mkdir -p "$fixture_parent"
+  FIXTURE_PARENT="$fixture_parent"
+  FIXTURE_PARENT_CLEANUP=0
+  if [[ -z "${E2E_FIXTURE_PARENT:-}" ]]; then
+    FIXTURE_PARENT_CLEANUP=1
+  fi
+  FIXTURE=$(mktemp -d "$fixture_parent/fixture.XXXXXX")
   export HOME="$FIXTURE/home"
   export XDG_STATE_HOME="$FIXTURE/state"
   export XDG_CONFIG_HOME="$FIXTURE/config"
@@ -54,6 +64,9 @@ new_fixture() {
 
 cleanup_fixture() {
   rm -rf "${FIXTURE:-}"
+  if [[ "${FIXTURE_PARENT_CLEANUP:-0}" == "1" ]]; then
+    rmdir "${FIXTURE_PARENT:-}" 2>/dev/null || true
+  fi
 }
 
 require_landlock() {

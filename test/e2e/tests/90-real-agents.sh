@@ -8,13 +8,22 @@ if [[ "${E2E_SKIP_REAL_AGENTS:-0}" == "1" || "${E2E_REAL_AGENTS:-1}" == "0" ]]; 
   exit 0
 fi
 
-REAL_TMP=$(mktemp -d "${TMPDIR:-/tmp}/agent-landlock-real.XXXXXX")
+REAL_PARENT="${E2E_REAL_FIXTURE_PARENT:-$E2E_REPO_ROOT/.agent-landlock-real-e2e}"
+mkdir -p "$REAL_PARENT"
+REAL_PARENT_CLEANUP=0
+if [[ -z "${E2E_REAL_FIXTURE_PARENT:-}" ]]; then
+  REAL_PARENT_CLEANUP=1
+fi
+REAL_TMP=$(mktemp -d "$REAL_PARENT/real.XXXXXX")
 cleanup_real_fixture() {
   if [[ "${E2E_KEEP_REAL_AGENT_FIXTURE:-0}" == "1" ]]; then
     log "keeping real-agent fixture: $REAL_TMP"
     return
   fi
   rm -rf "$REAL_TMP"
+  if [[ "$REAL_PARENT_CLEANUP" == "1" ]]; then
+    rmdir "$REAL_PARENT" 2>/dev/null || true
+  fi
 }
 trap cleanup_real_fixture EXIT
 

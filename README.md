@@ -4,7 +4,7 @@ Run AI coding agents under a Linux Landlock write boundary.
 
 `agent-landlock` runs the child process as the current Unix user, keeps normal file
 ownership, and uses the kernel Landlock LSM to make the host filesystem
-read-only except for explicitly writable directories.
+read-only except for explicitly writable directories and system-managed paths.
 
 ## Model
 
@@ -14,6 +14,9 @@ The boundary is write-oriented, not read-oriented.
 - The process can write the current project directory selected by `--dir` or
   `$PWD`.
 - The process can write additional directories passed with `--grant`.
+- System-managed paths such as `/tmp`, `/dev`, `/proc`, `/sys`, `/run`, `/etc`,
+  `/usr`, `/var`, `/media`, and `/mnt` remain writable according to normal Unix
+  permissions.
 - Known agents get their own state directory writable by default:
   `~/.claude`, `~/.codex`, or `~/.gemini`. Claude also gets
   `~/.local/state/claude` for its runtime locks.
@@ -76,7 +79,7 @@ Config search order:
 Supported keys:
 
 ```sh
-SAFETY_DENY_PATHS="/ /etc /var /usr /opt /boot /dev /proc /sys /root"
+SAFETY_DENY_PATHS="/ /root"
 EXTRA_ENV='RUSTC_WRAPPER=sccache'
 ```
 
@@ -127,10 +130,14 @@ disable this live test on machines without usable real-agent auth. Use
 
 ## Landlock Notes
 
-`agent-landlock` grants read access to `/` and write access only to selected writable
-roots. This preserves normal tool visibility while blocking file creation,
-write-open, truncation, unlink, rename, and other directory mutations outside
-those roots.
+`agent-landlock` grants read access to `/`, write access to selected writable
+roots, and write access to system-managed roots such as `/tmp`, `/dev`, `/proc`,
+`/sys`, `/run`, `/etc`, `/usr`, `/var`, `/media`, and `/mnt`. The system roots
+are still controlled by Unix ownership, mode bits, ACLs, groups, and device
+permissions; Landlock does not make them more writable than they already are.
+This preserves normal tool visibility and runtime behavior while blocking file
+creation, write-open, truncation, unlink, rename, and other directory mutations
+in ungranted user/workspace paths.
 
 Landlock does not currently restrict every metadata operation. Kernel
 documentation calls out operations such as `stat`, `chmod`, `chown`, `utime`,

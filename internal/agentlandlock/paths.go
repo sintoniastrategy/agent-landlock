@@ -150,6 +150,18 @@ func uniquePruned(paths []string) []string {
 	return cleaned
 }
 
+func systemWritableRoots(paths []string) []string {
+	var out []string
+	for _, raw := range paths {
+		path, err := resolveExistingDir(raw)
+		if err != nil {
+			continue
+		}
+		out = append(out, path)
+	}
+	return uniquePruned(out)
+}
+
 func ensureAgentStateDirs(agent string, noAgentState bool, dryRun bool) ([]string, error) {
 	if noAgentState {
 		return nil, nil

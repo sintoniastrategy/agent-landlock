@@ -28,8 +28,27 @@ var knownSubcommands = map[string]bool{
 }
 
 var defaultSafetyDenyPaths = []string{
-	"/", "/etc", "/var", "/usr", "/opt", "/boot", "/dev", "/proc",
-	"/sys", "/root",
+	"/", "/root",
+}
+
+var defaultSystemWritablePaths = []string{
+	"/bin",
+	"/boot",
+	"/dev",
+	"/etc",
+	"/lib",
+	"/lib64",
+	"/media",
+	"/mnt",
+	"/opt",
+	"/proc",
+	"/run",
+	"/sbin",
+	"/srv",
+	"/sys",
+	"/tmp",
+	"/usr",
+	"/var",
 }
 
 var agentYoloArgs = map[string][]string{
