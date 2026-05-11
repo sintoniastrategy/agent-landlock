@@ -370,18 +370,23 @@ func (a App) doctor(inv Invocation) (int, error) {
 				return ExitGeneric, err
 			}
 		}
-		path, status, err := healGlobalClaudeInstructions(inv.Common.DryRun)
-		if err != nil {
-			return exitCode(err), err
+		for _, ag := range supportedAgents {
+			path, status, err := healAgentInstructions(ag, inv.Common.DryRun)
+			if err != nil {
+				return exitCode(err), err
+			}
+			fmt.Fprintf(a.Stdout, "global %-9s: %s (%s)\n", ag.file, status, path)
 		}
-		fmt.Fprintf(a.Stdout, "global CLAUDE.md: %s (%s)\n", status, path)
 	} else {
-		path, status, err := checkGlobalClaudeInstructions()
-		if err == nil {
+		for _, ag := range supportedAgents {
+			path, status, err := checkAgentInstructions(ag)
+			if err != nil {
+				continue
+			}
 			if status == "ok" {
-				fmt.Fprintf(a.Stdout, "global CLAUDE.md: ok (%s)\n", path)
+				fmt.Fprintf(a.Stdout, "global %-9s: ok (%s)\n", ag.file, path)
 			} else {
-				fmt.Fprintf(a.Stdout, "global CLAUDE.md: %s; run doctor --heal (%s)\n", status, path)
+				fmt.Fprintf(a.Stdout, "global %-9s: %s; run doctor --heal (%s)\n", ag.file, status, path)
 			}
 		}
 	}
