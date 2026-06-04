@@ -109,15 +109,19 @@ func healAgentInstructions(a agentInstructions, dryRun bool) (string, string, er
 }
 
 func managedInstructionStatus(content, block string) string {
-	start := strings.Index(content, runtimeInstructionsBegin)
-	end := strings.Index(content, runtimeInstructionsEnd)
+	return managedBlockStatus(content, block, runtimeInstructionsBegin, runtimeInstructionsEnd)
+}
+
+func managedBlockStatus(content, block, begin, endMarker string) string {
+	start := strings.Index(content, begin)
+	end := strings.Index(content, endMarker)
 	if start == -1 && end == -1 {
 		return "missing"
 	}
 	if start == -1 || end == -1 || end < start {
 		return "partial"
 	}
-	end += len(runtimeInstructionsEnd)
+	end += len(endMarker)
 	current := content[start:end]
 	if strings.TrimSpace(current) == strings.TrimSpace(block) {
 		return "ok"
@@ -126,10 +130,14 @@ func managedInstructionStatus(content, block string) string {
 }
 
 func upsertManagedInstructionBlock(content, block string) string {
-	start := strings.Index(content, runtimeInstructionsBegin)
-	end := strings.Index(content, runtimeInstructionsEnd)
+	return upsertManagedBlock(content, block, runtimeInstructionsBegin, runtimeInstructionsEnd)
+}
+
+func upsertManagedBlock(content, block, begin, endMarker string) string {
+	start := strings.Index(content, begin)
+	end := strings.Index(content, endMarker)
 	if start != -1 && end != -1 && end >= start {
-		end += len(runtimeInstructionsEnd)
+		end += len(endMarker)
 		for end < len(content) && (content[end] == '\n' || content[end] == '\r') {
 			end++
 		}
