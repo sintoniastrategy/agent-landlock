@@ -13,9 +13,9 @@ const (
 )
 
 type agentInstructions struct {
-	name    string // Display name: "Claude", "Codex", "Gemini"
-	dir     string // Home-relative dir: ".claude", ".codex", ".gemini"
-	file    string // Filename: "CLAUDE.md", "AGENTS.md", "GEMINI.md"
+	name string // Display name: "Claude", "Codex", "Gemini"
+	dir  string // Home-relative dir: ".claude", ".codex", ".gemini"
+	file string // Filename: "CLAUDE.md", "AGENTS.md", "GEMINI.md"
 }
 
 var supportedAgents = []agentInstructions{
