@@ -377,6 +377,14 @@ func (a App) doctor(inv Invocation) (int, error) {
 			}
 			fmt.Fprintf(a.Stdout, "global %-9s: %s (%s)\n", ag.file, status, path)
 		}
+		path, status, err := healClaudeProfileEnv(inv.Common.DryRun)
+		if err != nil {
+			return exitCode(err), err
+		}
+		fmt.Fprintf(a.Stdout, "claude env      : %s (%s)\n", status, path)
+		if status == "healed" {
+			fmt.Fprintln(a.Stdout, "note            : CLAUDE_CONFIG_DIR export takes effect on next login shell")
+		}
 	} else {
 		for _, ag := range supportedAgents {
 			path, status, err := checkAgentInstructions(ag)
@@ -388,6 +396,20 @@ func (a App) doctor(inv Invocation) (int, error) {
 			} else {
 				fmt.Fprintf(a.Stdout, "global %-9s: %s; run doctor --heal (%s)\n", ag.file, status, path)
 			}
+		}
+		if path, status, err := checkClaudeProfileEnv(); err == nil {
+			if status == "ok" || status == "ok (user-managed)" {
+				fmt.Fprintf(a.Stdout, "claude env      : %s (%s)\n", status, path)
+			} else {
+				fmt.Fprintf(a.Stdout, "claude env      : %s; run doctor --heal (%s)\n", status, path)
+			}
+		}
+	}
+	if split, err := checkClaudeConfigSplit(); err == nil {
+		if split == "split" {
+			fmt.Fprintln(a.Stdout, "claude config   : split; ~/.claude.json written after bridged copy; merge mcpServers/projects manually")
+		} else {
+			fmt.Fprintln(a.Stdout, "claude config   : ok")
 		}
 	}
 	fmt.Fprintln(a.Stdout, "result          : ok")

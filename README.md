@@ -145,6 +145,16 @@ inside `~/.claude/CLAUDE.md` so global Claude sessions know to keep fallback
 writes inside the current workspace when Landlock denies an outside path. User
 content outside that marked block is preserved.
 
+Because only sandboxed runs get `CLAUDE_CONFIG_DIR`, a plain `claude` run
+keeps writing the legacy `~/.claude.json` and the two configs drift apart
+(different MCP servers, project trust). `doctor` reports this as a
+`claude env: missing` / `claude config: split` pair, and `doctor --heal`
+adds a managed `export CLAUDE_CONFIG_DIR="$HOME/.claude"` block to
+`~/.profile` so plain and sandboxed sessions share one config. An existing
+user-managed export in common rc files is detected and left alone; a
+diverged legacy `~/.claude.json` is warned about but never merged or
+removed automatically.
+
 ## Persistent grants
 
 ```sh
