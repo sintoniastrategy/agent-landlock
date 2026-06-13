@@ -29,6 +29,32 @@ func TestPrepareAgentEnvSetsClaudeConfigDirAndMigratesHomeConfig(t *testing.T) {
 	}
 }
 
+func TestPrepareAgentEnvToleratesHealedSymlink(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	configDir := filepath.Join(home, ".claude")
+	dst := filepath.Join(configDir, ".claude.json")
+	if err := os.MkdirAll(configDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(dst, []byte("bridged"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	// Mirror a healed setup: legacy path is a symlink to the bridged config.
+	if err := os.Symlink(dst, filepath.Join(home, ".claude.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	env := map[string]string{}
+	if err := prepareAgentEnv("claude", env, false, false); err != nil {
+		t.Fatalf("prepareAgentEnv returned error for healed symlink: %v", err)
+	}
+	got, err := os.ReadFile(dst)
+	if err != nil || string(got) != "bridged" {
+		t.Fatalf("bridged config = %q err = %v", got, err)
+	}
+}
+
 func TestPrepareAgentEnvDoesNotOverrideExistingClaudeConfigDir(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

@@ -385,6 +385,14 @@ func (a App) doctor(inv Invocation) (int, error) {
 		if status == "healed" {
 			fmt.Fprintln(a.Stdout, "note            : CLAUDE_CONFIG_DIR export takes effect on next login shell")
 		}
+		linkPath, linkStatus, err := healClaudeConfigSymlink(inv.Common.DryRun)
+		if err != nil {
+			return exitCode(err), err
+		}
+		fmt.Fprintf(a.Stdout, "claude link     : %s (%s)\n", linkStatus, linkPath)
+		if linkStatus == "split" {
+			fmt.Fprintln(a.Stdout, "note            : legacy ~/.claude.json diverged; merge mcpServers/projects then re-run doctor --heal")
+		}
 	} else {
 		for _, ag := range supportedAgents {
 			path, status, err := checkAgentInstructions(ag)

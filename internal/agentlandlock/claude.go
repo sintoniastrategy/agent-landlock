@@ -34,15 +34,18 @@ func prepareAgentEnv(agent string, env map[string]string, noAgentState bool, dry
 func migrateClaudeHomeConfig(home, configDir string) error {
 	src := filepath.Join(home, ".claude.json")
 	dst := filepath.Join(configDir, ".claude.json")
-	if err := refuseSymlink(src, "refusing symlinked Claude home config"); err != nil {
-		return err
-	}
 	if err := refuseSymlink(dst, "refusing symlinked Claude bridged config"); err != nil {
 		return err
 	}
+	// Once the bridged config exists, migration is already done. A healed
+	// setup leaves ~/.claude.json as a symlink pointing here, so short-circuit
+	// before inspecting src to avoid refusing our own intentional symlink.
 	if _, err := os.Stat(dst); err == nil {
 		return nil
 	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := refuseSymlink(src, "refusing symlinked Claude home config"); err != nil {
 		return err
 	}
 	st, err := os.Stat(src)

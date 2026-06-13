@@ -122,6 +122,89 @@ func checkClaudeConfigSplit() (string, error) {
 	return "ok", nil
 }
 
+// healClaudeConfigSymlink replaces the legacy ~/.claude.json with a symlink to
+// the bridged ~/.claude/.claude.json so plain claude runs resolve to the same
+// config that sandboxed runs write, even when CLAUDE_CONFIG_DIR is not
+// exported. A diverged legacy config (a real split) is never clobbered.
+//
+// Status values: "ok" (already a symlink to the bridged config), "healed",
+// "would heal" (dry-run), "missing" (no config to link), "split" (legacy
+// diverged; merge first), "skipped (foreign symlink)".
+func healClaudeConfigSymlink(dryRun bool) (string, string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", "", err
+	}
+	src := filepath.Join(home, ".claude.json")
+	dst := filepath.Join(home, ".claude", ".claude.json")
+
+	srcInfo, err := os.Lstat(src)
+	srcExists := err == nil
+	if err != nil && !errors.Is(err, os.ErrNotExist) {
+		return src, "", err
+	}
+
+	// Already a symlink: adopt our own target, never touch a foreign one.
+	if srcExists && srcInfo.Mode()&os.ModeSymlink != 0 {
+		target, err := os.Readlink(src)
+		if err != nil {
+			return src, "", err
+		}
+		if target == dst {
+			return src, "ok", nil
+		}
+		return src, "skipped (foreign symlink)", nil
+	}
+
+	dstExists := false
+	if _, err := os.Stat(dst); err == nil {
+		dstExists = true
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return src, "", err
+	}
+
+	switch {
+	case !srcExists && !dstExists:
+		return src, "missing", nil
+	case srcExists && srcInfo.IsDir():
+		return src, "", exitError(ExitSafety, "Claude home config is a directory: "+src)
+	case srcExists && dstExists:
+		// Both are regular files; refuse to discard a diverged legacy config.
+		split, err := checkClaudeConfigSplit()
+		if err != nil {
+			return src, "", err
+		}
+		if split == "split" {
+			return src, "split", nil
+		}
+	}
+
+	if dryRun {
+		return src, "would heal", nil
+	}
+
+	// Ensure the bridged config exists, bridging the legacy file if needed.
+	if !dstExists {
+		if err := os.MkdirAll(filepath.Dir(dst), 0o700); err != nil {
+			return src, "", err
+		}
+		if srcExists {
+			if err := copyFileAtomic(src, dst, 0o600); err != nil {
+				return src, "", err
+			}
+		}
+	}
+	if srcExists {
+		if err := os.Remove(src); err != nil {
+			return src, "", err
+		}
+	}
+	if err := os.Symlink(dst, src); err != nil {
+		return src, "", err
+	}
+	return src, "healed", nil
+}
+
 func readFileIfExists(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {

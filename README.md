@@ -151,9 +151,12 @@ keeps writing the legacy `~/.claude.json` and the two configs drift apart
 `claude env: missing` / `claude config: split` pair, and `doctor --heal`
 adds a managed `export CLAUDE_CONFIG_DIR="$HOME/.claude"` block to
 `~/.profile` so plain and sandboxed sessions share one config. An existing
-user-managed export in common rc files is detected and left alone; a
-diverged legacy `~/.claude.json` is warned about but never merged or
-removed automatically.
+user-managed export in common rc files is detected and left alone. As a
+belt-and-suspenders fix, heal also replaces the legacy `~/.claude.json` with
+a symlink to `~/.claude/.claude.json`, so the legacy path resolves to the
+bridged config even when the export is not in effect. A diverged legacy
+`~/.claude.json` (a real split) is warned about but never clobbered, merged,
+or removed automatically — merge it by hand, then re-run `doctor --heal`.
 
 ## Persistent grants
 
