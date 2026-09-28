@@ -27,12 +27,21 @@ PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
   "$AGENT_LANDLOCK_BIN" -d "$PROJECT" codex -- exec prompt
 codex_args=$(cat "$PROJECT/codex.args")
 assert_contains "$codex_args" "--dangerously-bypass-approvals-and-sandbox"
+assert_contains "$codex_args" "--dangerously-bypass-hook-trust"
+assert_contains "$codex_args" "--no-daemon"
+assert_contains "$codex_args" 'sandbox_mode="danger-full-access"'
+assert_contains "$codex_args" 'approval_policy="never"'
+assert_contains "$codex_args" 'approvals_reviewer="user"'
 assert_contains "$codex_args" "exec"
 
 PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
   "$AGENT_LANDLOCK_BIN" --no-yolo -d "$PROJECT" codex -- exec prompt
 codex_no_yolo=$(cat "$PROJECT/codex.args")
 assert_not_contains "$codex_no_yolo" "--dangerously-bypass-approvals-and-sandbox"
+assert_not_contains "$codex_no_yolo" "--dangerously-bypass-hook-trust"
+assert_not_contains "$codex_no_yolo" "--no-daemon"
+assert_not_contains "$codex_no_yolo" "sandbox_mode"
+assert_not_contains "$codex_no_yolo" "approval_policy"
 
 mkdir -p "$XDG_CONFIG_HOME/agent-landlock"
 printf 'EXTRA_ENV=FROM_CONFIG=yes\n' > "$XDG_CONFIG_HOME/agent-landlock/config"

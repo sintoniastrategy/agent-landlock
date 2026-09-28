@@ -85,7 +85,7 @@ network access, or replace a container boundary.
 - Linux kernel with **Landlock ABI v3+** (≥ 6.2). `agent-landlock` fails
   closed if Landlock is unavailable or the kernel exposes an older ABI;
   v3 is required for write-truncation control.
-- Go 1.24+ to build from source.
+- Go 1.26+ to build from source.
 
 ## Install
 
@@ -131,8 +131,17 @@ Known-agent subcommands force no-prompt (YOLO) mode unless `--no-yolo` is passed
 | Agent     | Forced flags / env                                                       |
 |-----------|--------------------------------------------------------------------------|
 | `claude`  | `--dangerously-skip-permissions`                                         |
-| `codex`   | `--dangerously-bypass-approvals-and-sandbox`                             |
+| `codex`   | `--no-daemon`, sandbox/approval and hook-trust bypass flags, plus explicit full-access config overrides |
 | `gemini`  | `--approval-mode yolo --skip-trust`, plus `GEMINI_SANDBOX=false`         |
+
+Codex receives `sandbox_mode="danger-full-access"`, `approval_policy="never"`,
+and `approvals_reviewer="user"` as command-line config overrides, including
+when launching `app-server`. The wrapper normalizes `--yolo` and repeated
+bypass flags, and rejects conflicting sandbox, approval, or remote-server
+options. `--no-yolo` preserves the original arguments without these overrides.
+`--no-daemon` keeps interactive execution in the Landlock-confined process
+tree. `--dangerously-bypass-hook-trust` enables configured hooks without
+persisted hook trust for the invocation.
 
 For `claude` specifically the wrapper also sets `CLAUDE_CONFIG_DIR=~/.claude`
 (unless already set) and, if `~/.claude.json` exists but

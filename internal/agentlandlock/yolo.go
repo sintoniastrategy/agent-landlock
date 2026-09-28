@@ -9,6 +9,9 @@ func forceAgentYolo(cmd []string, agent string, env map[string]string, noYolo bo
 	if noYolo || agent == "" || !KnownAgents[agent] {
 		return cmd, nil
 	}
+	if agent == "codex" {
+		return forceCodexYolo(cmd)
+	}
 	if agent == "gemini" {
 		env["GEMINI_SANDBOX"] = "false"
 	}
@@ -61,24 +64,6 @@ func scanYoloArgs(agent string, args []string) (bool, error) {
 					return false, exitError(ExitUsage, fmt.Sprintf("claude must run YOLO; refusing --permission-mode %s", value))
 				}
 				yolo = true
-				i = next - 1
-			}
-		case "codex":
-			if token == "--dangerously-bypass-approvals-and-sandbox" {
-				yolo = true
-				continue
-			}
-			if value, next, ok := optionValueAny(args, i, "--ask-for-approval", "-a"); ok {
-				if value != "never" {
-					return false, exitError(ExitUsage, fmt.Sprintf("codex must run YOLO; refusing approval mode %s", value))
-				}
-				i = next - 1
-				continue
-			}
-			if value, next, ok := optionValueAny(args, i, "--sandbox", "-s"); ok {
-				if value != "danger-full-access" {
-					return false, exitError(ExitUsage, fmt.Sprintf("codex must run YOLO; refusing sandbox %s", value))
-				}
 				i = next - 1
 			}
 		case "gemini":
