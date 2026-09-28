@@ -52,7 +52,7 @@ var defaultSystemWritablePaths = []string{
 }
 
 var agentYoloArgs = map[string][]string{
-	"claude": {"--dangerously-skip-permissions"},
+	"claude": {"--dangerously-skip-permissions", "--permission-mode", "bypassPermissions"},
 	"codex": {
 		"--no-daemon",
 		"--dangerously-bypass-approvals-and-sandbox",

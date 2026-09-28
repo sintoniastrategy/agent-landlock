@@ -115,6 +115,14 @@ func (a App) execute(inv Invocation, cmdArgs []string, agent string) (int, error
 	if err != nil {
 		return exitCode(err), err
 	}
+	if agent == "claude" && !inv.Common.NoYolo {
+		var cleanup func()
+		cmdArgs, cleanup, err = prepareClaudeYoloSettings(cmdArgs, workdir, inv.Common.DryRun)
+		if err != nil {
+			return exitCode(err), err
+		}
+		defer cleanup()
+	}
 	writable, err := a.writableRoots(inv, workdir, agent)
 	if err != nil {
 		return exitCode(err), err
@@ -137,7 +145,11 @@ func (a App) execute(inv Invocation, cmdArgs []string, agent string) (int, error
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	if agent == "claude" && !inv.Common.NoYolo {
+		err = runClaudeYolo(cmd)
+	} else {
+		err = cmd.Run()
+	}
 	if err == nil {
 		return ExitOK, nil
 	}
