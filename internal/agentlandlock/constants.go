@@ -53,7 +53,14 @@ var defaultSystemWritablePaths = []string{
 
 var agentYoloArgs = map[string][]string{
 	"claude": {"--dangerously-skip-permissions"},
-	"codex":  {"--dangerously-bypass-approvals-and-sandbox"},
+	"codex": {
+		"--no-daemon",
+		"--dangerously-bypass-approvals-and-sandbox",
+		"--dangerously-bypass-hook-trust",
+		"-c", `sandbox_mode="danger-full-access"`,
+		"-c", `approval_policy="never"`,
+		"-c", `approvals_reviewer="user"`,
+	},
 	"gemini": {"--approval-mode", "yolo"},
 }
 

@@ -8,7 +8,10 @@ func TestForceCodexYolo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"codex", "--dangerously-bypass-approvals-and-sandbox", "exec"}
+	want := []string{
+		"codex", "--no-daemon", "--dangerously-bypass-approvals-and-sandbox", "--dangerously-bypass-hook-trust",
+		"-c", `sandbox_mode="danger-full-access"`, "-c", `approval_policy="never"`, "-c", `approvals_reviewer="user"`, "exec",
+	}
 	if !sameStrings(got, want) {
 		t.Fatalf("cmd = %#v, want %#v", got, want)
 	}
