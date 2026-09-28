@@ -119,7 +119,7 @@ func (a App) execute(inv Invocation, cmdArgs []string, agent string) (int, error
 	if err != nil {
 		return exitCode(err), err
 	}
-	noExecute, err := codexExecutionDenied(env, workdir)
+	noExecute, err := agentExecutionDenied(env, workdir)
 	if err != nil {
 		return ExitUsage, err
 	}

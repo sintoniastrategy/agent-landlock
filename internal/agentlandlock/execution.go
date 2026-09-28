@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func codexExecutionDenied(env map[string]string, workdir string) ([]string, error) {
+func agentExecutionDenied(env map[string]string, workdir string) ([]string, error) {
 	home := env["HOME"]
 	if home == "" {
 		var err error
@@ -15,9 +15,11 @@ func codexExecutionDenied(env map[string]string, workdir string) ([]string, erro
 			return nil, err
 		}
 	}
-	paths := []string{filepath.Join(home, ".codex")}
-	if custom := env["CODEX_HOME"]; custom != "" {
-		paths = append(paths, custom)
+	paths := []string{filepath.Join(home, ".codex"), filepath.Join(home, ".claude")}
+	for _, key := range []string{"CODEX_HOME", "CLAUDE_CONFIG_DIR"} {
+		if custom := env[key]; custom != "" {
+			paths = append(paths, custom)
+		}
 	}
 	for i, path := range paths {
 		if !filepath.IsAbs(path) {
@@ -25,7 +27,7 @@ func codexExecutionDenied(env map[string]string, workdir string) ([]string, erro
 		}
 		resolved, err := resolveExecutionPath(path)
 		if err != nil {
-			return nil, fmt.Errorf("resolve non-executable Codex directory %q: %w", path, err)
+			return nil, fmt.Errorf("resolve non-executable agent directory %q: %w", path, err)
 		}
 		paths[i] = resolved
 	}

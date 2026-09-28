@@ -10,7 +10,7 @@ import (
 	"testing"
 )
 
-func TestCodexExecutionDenied(t *testing.T) {
+func TestAgentExecutionDenied(t *testing.T) {
 	root := t.TempDir()
 	home := filepath.Join(root, "home")
 	work := filepath.Join(root, "work")
@@ -23,17 +23,22 @@ func TestCodexExecutionDenied(t *testing.T) {
 		t.Fatal(err)
 	}
 	cases := []struct {
-		custom string
+		name   string
+		codex  string
+		claude string
 		want   []string
 	}{
-		{"", []string{filepath.Join(home, ".codex")}},
-		{filepath.Join(home, ".codex", "nested"), []string{filepath.Join(home, ".codex")}},
-		{"alias/state", []string{filepath.Join(home, ".codex"), filepath.Join(work, "missing", "state")}},
-		{work, []string{filepath.Join(home, ".codex"), work}},
+		{"defaults", "", "", []string{filepath.Join(home, ".claude"), filepath.Join(home, ".codex")}},
+		{"nested", filepath.Join(home, ".codex", "nested"), filepath.Join(home, ".claude", "nested"), []string{filepath.Join(home, ".claude"), filepath.Join(home, ".codex")}},
+		{"relative codex", "alias/state", "", []string{filepath.Join(home, ".claude"), filepath.Join(home, ".codex"), filepath.Join(work, "missing", "state")}},
+		{"relative claude", "", "alias/state", []string{filepath.Join(home, ".claude"), filepath.Join(home, ".codex"), filepath.Join(work, "missing", "state")}},
+		{"shared custom", work, work, []string{filepath.Join(home, ".claude"), filepath.Join(home, ".codex"), work}},
+		{"custom ancestor", "", home, []string{home}},
 	}
 	for _, tc := range cases {
-		t.Run(tc.custom, func(t *testing.T) {
-			got, err := codexExecutionDenied(map[string]string{"HOME": home, "CODEX_HOME": tc.custom}, work)
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := agentExecutionDenied(map[string]string{"HOME": home, "CODEX_HOME": tc.codex, "CLAUDE_CONFIG_DIR": tc.claude}, work)
+			slices.Sort(got)
 			if err != nil || !slices.Equal(got, tc.want) {
 				t.Fatalf("denied = %v, %v; want %v", got, err, tc.want)
 			}
@@ -60,13 +65,13 @@ func TestExecutableRoots(t *testing.T) {
 	}
 }
 
-func TestCodexExecutionSandbox(t *testing.T) {
+func TestAgentExecutionSandbox(t *testing.T) {
 	if root := os.Getenv("AGENT_LANDLOCK_EXECUTION_TEST"); root != "" {
-		testCodexExecutionSandbox(t, root)
+		testAgentExecutionSandbox(t, root)
 		return
 	}
 	root := t.TempDir()
-	for _, path := range []string{"home/.codex/packages", "project", "custom"} {
+	for _, path := range []string{"home/.codex/packages", "home/.claude/local", "project", "custom"} {
 		if err := os.MkdirAll(filepath.Join(root, path), 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -78,14 +83,14 @@ func TestCodexExecutionSandbox(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(executable, "-test.run=^TestCodexExecutionSandbox$", "-test.v")
+	cmd := exec.Command(executable, "-test.run=^TestAgentExecutionSandbox$", "-test.v")
 	cmd.Env = append(os.Environ(), "AGENT_LANDLOCK_EXECUTION_TEST="+root)
 	if output, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("sandbox child: %v\n%s", err, output)
 	}
 }
 
-func testCodexExecutionSandbox(t *testing.T, root string) {
+func testAgentExecutionSandbox(t *testing.T, root string) {
 	truePath, err := exec.LookPath("true")
 	if err != nil {
 		t.Fatal(err)
@@ -95,14 +100,15 @@ func testCodexExecutionSandbox(t *testing.T, root string) {
 		t.Fatal(err)
 	}
 	env := map[string]string{
-		"HOME":       filepath.Join(root, "home"),
-		"CODEX_HOME": filepath.Join(root, "custom-link"),
+		"HOME":              filepath.Join(root, "home"),
+		"CODEX_HOME":        filepath.Join(root, "custom-link"),
+		"CLAUDE_CONFIG_DIR": filepath.Join(root, "custom-claude", "missing"),
 	}
-	denied, err := codexExecutionDenied(env, root)
+	denied, err := agentExecutionDenied(env, root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Chdir(filepath.Join(root, "home", ".codex")); err != nil {
+	if err := os.Chdir(filepath.Join(root, "home", ".claude")); err != nil {
 		t.Fatal(err)
 	}
 	if err := applySandbox(SandboxPolicy{
@@ -116,7 +122,7 @@ func testCodexExecutionSandbox(t *testing.T, root string) {
 	if err := exec.Command(truePath).Run(); err != nil {
 		t.Fatalf("system executable: %v", err)
 	}
-	for _, path := range append(denied, filepath.Join(root, "home", ".codex", "packages", "new-release")) {
+	for _, path := range append(slices.Clone(denied), filepath.Join(root, "home", ".codex", "packages", "new-release"), filepath.Join(root, "home", ".claude", "local", "new-release")) {
 		if err := os.MkdirAll(path, 0o700); err != nil {
 			t.Fatal(err)
 		}
@@ -129,14 +135,19 @@ func testCodexExecutionSandbox(t *testing.T, root string) {
 		}
 	}
 	project := filepath.Join(root, "project")
-	alias := filepath.Join(project, "alias")
-	if err := os.Symlink(filepath.Join(denied[0], "server"), alias); err != nil {
-		t.Fatal(err)
+	for _, path := range denied {
+		alias := filepath.Join(project, "alias")
+		if err := os.Symlink(filepath.Join(path, "server"), alias); err != nil {
+			t.Fatal(err)
+		}
+		if err := exec.Command(alias).Run(); !errors.Is(err, syscall.EACCES) {
+			t.Fatalf("execution through symlink to %s: got %v, want EACCES", path, err)
+		}
+		if err := os.Remove(alias); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := exec.Command(alias).Run(); !errors.Is(err, syscall.EACCES) {
-		t.Fatalf("execution through symlink: got %v, want EACCES", err)
-	}
-	for _, path := range []string{project, filepath.Join(denied[0], "sessions")} {
+	for _, path := range append([]string{project}, denied...) {
 		from := filepath.Join(path, "from")
 		to := filepath.Join(path, "to")
 		for _, dir := range []string{from, to} {

@@ -144,13 +144,15 @@ tree. `--dangerously-bypass-hook-trust` enables configured hooks without
 persisted hook trust for the invocation.
 
 Every sandboxed command also receives a separate execution restriction for
-`$HOME/.codex` and, when set, `$CODEX_HOME`. These directories remain writable
+`$HOME/.codex`, `$HOME/.claude` and, when set, `$CODEX_HOME` and
+`$CLAUDE_CONFIG_DIR`. These directories remain writable
 under the normal grant rules, but binaries stored inside them cannot be
 executed directly. Selecting them as the workspace, granting an ancestor, or
 using `--force`, `--no-agent-state`, or `--no-yolo` does not lift this restriction.
 Symlinked paths are resolved before constructing the execution rules.
 
-Install Codex outside its state directories, for example under `/opt/codex`.
+Install Codex and Claude outside their state directories, for example under
+`/opt/codex` and `/opt/claude-code`.
 Execution remains allowed in existing directories outside the protected trees;
 new siblings created directly under their ancestors may require a new sandboxed
 run. Downloads are not blocked, and passing a readable script or binary to an
