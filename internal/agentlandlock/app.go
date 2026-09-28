@@ -145,7 +145,11 @@ func (a App) execute(inv Invocation, cmdArgs []string, agent string) (int, error
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	if agent == "claude" && !inv.Common.NoYolo {
+		err = runClaudeYolo(cmd)
+	} else {
+		err = cmd.Run()
+	}
 	if err == nil {
 		return ExitOK, nil
 	}

@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 )
 
 func forceClaudeYolo(cmd []string) ([]string, error) {
@@ -132,4 +135,26 @@ func prepareClaudeYoloSettings(cmd []string, workdir string, dryRun bool) ([]str
 
 func claudeYoloConflict(argument string) error {
 	return exitError(ExitUsage, fmt.Sprintf("claude must run locally with full YOLO; refusing %s (use --no-yolo to opt out)", argument))
+}
+
+func runClaudeYolo(cmd *exec.Cmd) error {
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
+	defer signal.Stop(signals)
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		for {
+			select {
+			case received := <-signals:
+				_ = cmd.Process.Signal(received)
+			case <-done:
+				return
+			}
+		}
+	}()
+	return cmd.Wait()
 }

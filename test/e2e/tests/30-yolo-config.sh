@@ -27,6 +27,9 @@ if "--settings" in args:
     (root / "claude.settings").write_text(settings.read_text())
     assert stat.S_IMODE(settings.stat().st_mode) == 0o600
 PY
+if [[ "${LANDLOCK_WAIT:-}" == "1" ]]; then
+  exec sleep 60
+fi
 SH
 cat >"$bin_dir/codex" <<'SH'
 #!/usr/bin/env bash
@@ -73,6 +76,18 @@ claude_no_yolo=$(cat "$PROJECT/claude.args")
 assert_not_contains "$claude_no_yolo" "--dangerously-skip-permissions"
 assert_not_contains "$claude_no_yolo" "--permission-mode"
 assert_not_contains "$claude_no_yolo" "--settings"
+
+rm "$PROJECT/claude.settings-path"
+LANDLOCK_WAIT=1 PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
+  "$AGENT_LANDLOCK_BIN" -d "$PROJECT" claude -- -p prompt &
+claude_pid=$!
+wait_until 10 test -s "$PROJECT/claude.settings-path"
+claude_settings_path=$(cat "$PROJECT/claude.settings-path")
+kill -TERM "$claude_pid"
+claude_status=0
+wait "$claude_pid" || claude_status=$?
+[[ "$claude_status" == "143" ]] || fail "Claude signal exit was $claude_status"
+assert_not_exists "$claude_settings_path"
 
 PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
   "$AGENT_LANDLOCK_BIN" -d "$PROJECT" codex -- exec prompt
