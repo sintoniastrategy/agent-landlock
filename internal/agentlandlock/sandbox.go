@@ -12,6 +12,7 @@ type SandboxPolicy struct {
 	ReadOnlyRoot   bool
 	Writable       []string
 	SystemWritable []string
+	NoExecute      []string
 }
 
 func LandlockABIVersion() (int, error) {
@@ -33,6 +34,13 @@ func applySandbox(policy SandboxPolicy) error {
 		)
 	}
 	cfg := landlockConfigForABI(abi)
+	var executable []string
+	if len(policy.NoExecute) > 0 {
+		executable, err = executableRoots("/", policy.NoExecute)
+		if err != nil {
+			return exitError(ExitLandlockUnavailable, fmt.Sprintf("could not prepare execution policy: %v", err))
+		}
+	}
 	rules := []landlock.Rule{landlock.RODirs("/").WithIoctlDev()}
 	if len(policy.Writable) > 0 {
 		rules = append(rules, landlock.RWDirs(policy.Writable...).WithRefer())
@@ -42,6 +50,18 @@ func applySandbox(policy SandboxPolicy) error {
 	}
 	if err := cfg.RestrictPaths(rules...); err != nil {
 		return exitError(ExitLandlockUnavailable, fmt.Sprintf("could not enforce Landlock policy: %v", err))
+	}
+	if len(policy.NoExecute) > 0 {
+		execute := landlock.AccessFSSet(llsyscall.AccessFSExecute)
+		refer := landlock.AccessFSSet(llsyscall.AccessFSRefer)
+		executionConfig := landlock.Config{HandledAccessFS: execute | refer}
+		executionRules := []landlock.Rule{landlock.PathAccess(refer, "/")}
+		if len(executable) > 0 {
+			executionRules = append(executionRules, landlock.PathAccess(execute, executable...))
+		}
+		if err := executionConfig.RestrictPaths(executionRules...); err != nil {
+			return exitError(ExitLandlockUnavailable, fmt.Sprintf("could not enforce execution policy: %v", err))
+		}
 	}
 	return nil
 }

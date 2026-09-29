@@ -161,6 +161,21 @@ For `claude` specifically the wrapper also sets `CLAUDE_CONFIG_DIR=~/.claude`
 writable Claude state directory before Landlock is applied. This avoids
 granting write access to all of `$HOME` just so Claude can update its config.
 
+Every sandboxed command also receives a separate execution restriction for
+`$HOME/.codex`, `$HOME/.claude` and, when set, `$CODEX_HOME` and
+`$CLAUDE_CONFIG_DIR`. These directories remain writable
+under the normal grant rules, but binaries stored inside them cannot be
+executed directly. Selecting them as the workspace, granting an ancestor, or
+using `--force`, `--no-agent-state`, or `--no-yolo` does not lift this restriction.
+Symlinked paths are resolved before constructing the execution rules.
+
+Install Codex and Claude outside their state directories, for example under
+`/opt/codex` and `/opt/claude-code`.
+Execution remains allowed in existing directories outside the protected trees;
+new siblings created directly under their ancestors may require a new sandboxed
+run. Downloads are not blocked, and passing a readable script or binary to an
+interpreter or loader is outside this direct-execution restriction.
+
 `agent-landlock doctor --heal` repairs a managed runtime-instructions block
 inside `~/.claude/CLAUDE.md` so global Claude sessions know to keep fallback
 writes inside the current workspace when Landlock denies an outside path. User
