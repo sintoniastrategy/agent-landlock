@@ -9,6 +9,28 @@ require_landlock
 
 bin_dir="$FIXTURE/bin"
 mkdir -p "$bin_dir"
+cat >"$bin_dir/claude" <<'SH'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+python3 - "$PROJECT_OUT" "$@" <<'PY'
+import json
+import pathlib
+import stat
+import sys
+
+root = pathlib.Path(sys.argv[1])
+args = sys.argv[2:]
+(root / "claude.args").write_text(json.dumps(args))
+if "--settings" in args:
+    settings = pathlib.Path(args[args.index("--settings") + 1])
+    (root / "claude.settings-path").write_text(str(settings))
+    (root / "claude.settings").write_text(settings.read_text())
+    assert stat.S_IMODE(settings.stat().st_mode) == 0o600
+PY
+if [[ "${LANDLOCK_WAIT:-}" == "1" ]]; then
+  exec sleep 60
+fi
+SH
 cat >"$bin_dir/codex" <<'SH'
 #!/usr/bin/env bash
 set -Eeuo pipefail
@@ -21,7 +43,51 @@ printf '%s\n' "$@" > "$PROJECT_OUT/gemini.args"
 printf '%s\n' "${GEMINI_SANDBOX:-}" > "$PROJECT_OUT/gemini.sandbox"
 printf '%s\n' "${FROM_CONFIG:-}" > "$PROJECT_OUT/gemini.from-config"
 SH
-chmod +x "$bin_dir/codex" "$bin_dir/gemini"
+chmod +x "$bin_dir/claude" "$bin_dir/codex" "$bin_dir/gemini"
+
+printf '%s\n' '{"sandbox":{"enabled":true},"permissions":{"defaultMode":"plan"},"env":{"PRIVATE_VALUE":"kept-private"}}' > "$PROJECT/claude-custom.json"
+PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
+  "$AGENT_LANDLOCK_BIN" -d "$PROJECT" claude -- --settings claude-custom.json -p prompt
+claude_args=$(cat "$PROJECT/claude.args")
+assert_contains "$claude_args" "--dangerously-skip-permissions"
+assert_contains "$claude_args" "bypassPermissions"
+assert_not_contains "$claude_args" "kept-private"
+assert_not_exists "$(cat "$PROJECT/claude.settings-path")"
+python3 - "$PROJECT/claude.settings" "$PROJECT/claude-custom.json" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1]) as stream:
+    settings = json.load(stream)
+assert settings["sandbox"]["enabled"] is False
+assert settings["sandbox"]["allowUnsandboxedCommands"] is True
+assert settings["permissions"]["defaultMode"] == "bypassPermissions"
+assert settings["skipDangerousModePermissionPrompt"] is True
+assert settings["env"]["PRIVATE_VALUE"] == "kept-private"
+with open(sys.argv[2]) as stream:
+    original = json.load(stream)
+assert original["sandbox"]["enabled"] is True
+assert original["permissions"]["defaultMode"] == "plan"
+PY
+
+PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
+  "$AGENT_LANDLOCK_BIN" --no-yolo -d "$PROJECT" claude -- -p prompt
+claude_no_yolo=$(cat "$PROJECT/claude.args")
+assert_not_contains "$claude_no_yolo" "--dangerously-skip-permissions"
+assert_not_contains "$claude_no_yolo" "--permission-mode"
+assert_not_contains "$claude_no_yolo" "--settings"
+
+rm "$PROJECT/claude.settings-path"
+LANDLOCK_WAIT=1 PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
+  "$AGENT_LANDLOCK_BIN" -d "$PROJECT" claude -- -p prompt &
+claude_pid=$!
+wait_until 10 test -s "$PROJECT/claude.settings-path"
+claude_settings_path=$(cat "$PROJECT/claude.settings-path")
+kill -TERM "$claude_pid"
+claude_status=0
+wait "$claude_pid" || claude_status=$?
+[[ "$claude_status" == "143" ]] || fail "Claude signal exit was $claude_status"
+assert_not_exists "$claude_settings_path"
 
 PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
   "$AGENT_LANDLOCK_BIN" -d "$PROJECT" codex -- exec prompt

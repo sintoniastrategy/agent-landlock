@@ -130,7 +130,7 @@ Known-agent subcommands force no-prompt (YOLO) mode unless `--no-yolo` is passed
 
 | Agent     | Forced flags / env                                                       |
 |-----------|--------------------------------------------------------------------------|
-| `claude`  | `--dangerously-skip-permissions`                                         |
+| `claude`  | `--dangerously-skip-permissions`, `--permission-mode bypassPermissions`, and temporary settings disabling the built-in sandbox and bypass-mode startup prompt |
 | `codex`   | `--no-daemon`, sandbox/approval and hook-trust bypass flags, plus explicit full-access config overrides |
 | `gemini`  | `--approval-mode yolo --skip-trust`, plus `GEMINI_SANDBOX=false`         |
 
@@ -142,6 +142,24 @@ options. `--no-yolo` preserves the original arguments without these overrides.
 `--no-daemon` keeps interactive execution in the Landlock-confined process
 tree. `--dangerously-bypass-hook-trust` enables configured hooks without
 persisted hook trust for the invocation.
+
+Claude receives `sandbox.enabled=false`, `sandbox.allowUnsandboxedCommands=true`,
+`permissions.defaultMode="bypassPermissions"`, and
+`skipDangerousModePermissionPrompt=true` through `--settings`. If supplied,
+the last `--settings` file or inline JSON is merged with these overrides;
+relative filenames resolve from the selected workspace. Other settings,
+including hooks, are preserved. The merged settings live in a private
+temporary file removed when Claude exits; source settings are not rewritten.
+Conflicting permission modes, restricted mode, cloud launches, and dispatch
+through background sessions are rejected. `--no-yolo` preserves the original
+arguments and skips these settings. These overrides do not remove Claude's
+managed policies or explicit tool-deny rules.
+
+For `claude` specifically the wrapper also sets `CLAUDE_CONFIG_DIR=~/.claude`
+(unless already set) and, if `~/.claude.json` exists but
+`~/.claude/.claude.json` does not, copies the top-level config into the
+writable Claude state directory before Landlock is applied. This avoids
+granting write access to all of `$HOME` just so Claude can update its config.
 
 Every sandboxed command also receives a separate execution restriction for
 `$HOME/.codex`, `$HOME/.claude` and, when set, `$CODEX_HOME` and
@@ -157,12 +175,6 @@ Execution remains allowed in existing directories outside the protected trees;
 new siblings created directly under their ancestors may require a new sandboxed
 run. Downloads are not blocked, and passing a readable script or binary to an
 interpreter or loader is outside this direct-execution restriction.
-
-For `claude` specifically the wrapper also sets `CLAUDE_CONFIG_DIR=~/.claude`
-(unless already set) and, if `~/.claude.json` exists but
-`~/.claude/.claude.json` does not, copies the top-level config into the
-writable Claude state directory before Landlock is applied. This avoids
-granting write access to all of `$HOME` just so Claude can update its config.
 
 `agent-landlock doctor --heal` repairs a managed runtime-instructions block
 inside `~/.claude/CLAUDE.md` so global Claude sessions know to keep fallback
