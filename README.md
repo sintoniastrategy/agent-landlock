@@ -131,7 +131,7 @@ Known-agent subcommands force no-prompt (YOLO) mode unless `--no-yolo` is passed
 | Agent     | Forced flags / env                                                       |
 |-----------|--------------------------------------------------------------------------|
 | `claude`  | `--dangerously-skip-permissions`, `--permission-mode bypassPermissions`, and temporary settings disabling the built-in sandbox and bypass-mode startup prompt |
-| `codex`   | `--no-daemon`, sandbox/approval and hook-trust bypass flags, plus explicit full-access config overrides |
+| `codex`   | `--no-daemon`, sandbox/approval bypass flag, plus explicit full-access config overrides |
 | `gemini`  | `--approval-mode yolo --skip-trust`, plus `GEMINI_SANDBOX=false`         |
 
 Codex receives `sandbox_mode="danger-full-access"`, `approval_policy="never"`,
@@ -140,8 +140,11 @@ when launching `app-server`. The wrapper normalizes `--yolo` and repeated
 bypass flags, and rejects conflicting sandbox, approval, or remote-server
 options. `--no-yolo` preserves the original arguments without these overrides.
 `--no-daemon` keeps interactive execution in the Landlock-confined process
-tree. `--dangerously-bypass-hook-trust` enables configured hooks without
-persisted hook trust for the invocation.
+tree. Hook trust is preserved by default. Use `agent-landlock --yolo-max codex`
+to also inject `--dangerously-bypass-hook-trust`, enabling configured hooks
+without persisted hook trust for the invocation. An explicitly passed Codex
+`--dangerously-bypass-hook-trust` flag is preserved. `--yolo-max` cannot be
+combined with `--no-yolo` and does not change Claude or Gemini behavior.
 
 Claude receives `sandbox.enabled=false`, `sandbox.allowUnsandboxedCommands=true`,
 `permissions.defaultMode="bypassPermissions"`, and

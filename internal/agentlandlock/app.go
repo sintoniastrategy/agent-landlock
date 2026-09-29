@@ -111,7 +111,7 @@ func (a App) execute(inv Invocation, cmdArgs []string, agent string) (int, error
 	if err := prepareAgentEnv(agent, env, inv.Common.NoAgentState, inv.Common.DryRun); err != nil {
 		return exitCode(err), err
 	}
-	cmdArgs, err = forceAgentYolo(cmdArgs, agent, env, inv.Common.NoYolo)
+	cmdArgs, err = forceAgentYolo(cmdArgs, agent, env, inv.Common)
 	if err != nil {
 		return exitCode(err), err
 	}
@@ -498,6 +498,7 @@ common flags:
       --force            bypass safety-denied writable path checks
       --no-agent-state   do not auto-grant known agent state directory
       --no-yolo          do not inject known agent no-prompt flags
+      --yolo-max         also bypass Codex hook trust; conflicts with --no-yolo
 
 commands: %s
 state:    ~/.local/state/agent-landlock/

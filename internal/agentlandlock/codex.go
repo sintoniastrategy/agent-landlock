@@ -6,8 +6,12 @@ import (
 	"strings"
 )
 
-func forceCodexYolo(cmd []string) ([]string, error) {
+func forceCodexYolo(cmd []string, yoloMax bool) ([]string, error) {
 	out := append([]string{cmd[0]}, agentYoloArgs["codex"]...)
+	bypassHookTrust := yoloMax
+	if bypassHookTrust {
+		out = append(out, "--dangerously-bypass-hook-trust")
+	}
 	for i := 1; i < len(cmd); i++ {
 		token := cmd[i]
 		if token == "--" {
@@ -15,7 +19,13 @@ func forceCodexYolo(cmd []string) ([]string, error) {
 			break
 		}
 		switch token {
-		case "--yolo", "--dangerously-bypass-approvals-and-sandbox", "--no-daemon", "--dangerously-bypass-hook-trust":
+		case "--yolo", "--dangerously-bypass-approvals-and-sandbox", "--no-daemon":
+			continue
+		case "--dangerously-bypass-hook-trust":
+			if !bypassHookTrust {
+				out = append(out, token)
+				bypassHookTrust = true
+			}
 			continue
 		case "--full-auto", "--approve-for-me":
 			return nil, codexYoloConflict(token)
