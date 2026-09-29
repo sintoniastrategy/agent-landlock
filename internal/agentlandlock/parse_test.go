@@ -1,6 +1,9 @@
 package agentlandlock
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseNoArgsShowsHelp(t *testing.T) {
 	inv, err := ParseArgs(nil)
@@ -70,6 +73,77 @@ func TestParseRunWithRuntimeGrant(t *testing.T) {
 	}
 	if !sameStrings(inv.Args, []string{"bash", "-lc", "true"}) {
 		t.Fatalf("args = %#v", inv.Args)
+	}
+}
+
+func TestParseYoloMax(t *testing.T) {
+	for _, args := range [][]string{
+		{"--yolo-max", "codex", "--", "exec", "prompt"},
+		{"codex", "--yolo-max", "--", "exec", "prompt"},
+		{"--yolo-max", "codex", "--yolo-max", "exec", "prompt"},
+		{"--yolo-max", "run", "--", "codex", "exec", "prompt"},
+		{"run", "--yolo-max", "--", "codex", "exec", "prompt"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			inv, err := ParseArgs(args)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !inv.Common.YoloMax || inv.Common.NoYolo {
+				t.Fatalf("unexpected options: %#v", inv.Common)
+			}
+			want := []string{"exec", "prompt"}
+			if inv.Command == "run" {
+				want = append([]string{"codex"}, want...)
+			}
+			if !sameStrings(inv.Args, want) {
+				t.Fatalf("args = %#v, want %#v", inv.Args, want)
+			}
+		})
+	}
+}
+
+func TestParseYoloMaxRejectsNoYolo(t *testing.T) {
+	for _, args := range [][]string{
+		{"--yolo-max", "--no-yolo", "codex"},
+		{"--no-yolo", "--yolo-max", "codex"},
+		{"--yolo-max", "codex", "--no-yolo"},
+		{"--no-yolo", "codex", "--yolo-max"},
+		{"codex", "--yolo-max", "--no-yolo"},
+		{"codex", "--no-yolo", "--yolo-max"},
+		{"--yolo-max", "run", "--no-yolo", "--", "codex"},
+		{"--no-yolo", "run", "--yolo-max", "--", "codex"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			_, err := ParseArgs(args)
+			if err == nil || exitCode(err) != ExitUsage {
+				t.Fatalf("expected usage error, got %v", err)
+			}
+		})
+	}
+}
+
+func TestParseYoloMaxPassthrough(t *testing.T) {
+	for _, args := range [][]string{
+		{"--", "--yolo-max", "--no-yolo"},
+		{"--model", "test", "--yolo-max", "--no-yolo"},
+	} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			inv, err := ParseArgs(append([]string{"codex"}, args...))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if inv.Common.YoloMax || inv.Common.NoYolo {
+				t.Fatalf("passthrough changed wrapper options: %#v", inv.Common)
+			}
+			want := args
+			if args[0] == "--" {
+				want = args[1:]
+			}
+			if !sameStrings(inv.Args, want) {
+				t.Fatalf("args = %#v, want %#v", inv.Args, want)
+			}
+		})
 	}
 }
 

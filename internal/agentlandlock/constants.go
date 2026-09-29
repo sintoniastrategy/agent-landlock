@@ -56,7 +56,6 @@ var agentYoloArgs = map[string][]string{
 	"codex": {
 		"--no-daemon",
 		"--dangerously-bypass-approvals-and-sandbox",
-		"--dangerously-bypass-hook-trust",
 		"-c", `sandbox_mode="danger-full-access"`,
 		"-c", `approval_policy="never"`,
 		"-c", `approvals_reviewer="user"`,

@@ -93,12 +93,38 @@ PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
   "$AGENT_LANDLOCK_BIN" -d "$PROJECT" codex -- exec prompt
 codex_args=$(cat "$PROJECT/codex.args")
 assert_contains "$codex_args" "--dangerously-bypass-approvals-and-sandbox"
-assert_contains "$codex_args" "--dangerously-bypass-hook-trust"
+assert_not_contains "$codex_args" "--dangerously-bypass-hook-trust"
 assert_contains "$codex_args" "--no-daemon"
 assert_contains "$codex_args" 'sandbox_mode="danger-full-access"'
 assert_contains "$codex_args" 'approval_policy="never"'
 assert_contains "$codex_args" 'approvals_reviewer="user"'
 assert_contains "$codex_args" "exec"
+
+PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
+  "$AGENT_LANDLOCK_BIN" --yolo-max -d "$PROJECT" codex -- exec prompt
+codex_yolo_max=$(cat "$PROJECT/codex.args")
+assert_contains "$codex_yolo_max" "--dangerously-bypass-approvals-and-sandbox"
+assert_contains "$codex_yolo_max" "--dangerously-bypass-hook-trust"
+assert_contains "$codex_yolo_max" "--no-daemon"
+assert_contains "$codex_yolo_max" 'sandbox_mode="danger-full-access"'
+assert_contains "$codex_yolo_max" 'approval_policy="never"'
+assert_contains "$codex_yolo_max" 'approvals_reviewer="user"'
+assert_contains "$codex_yolo_max" "exec"
+
+PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
+  "$AGENT_LANDLOCK_BIN" -d "$PROJECT" run --yolo-max -- codex app-server --stdio
+codex_yolo_max_run=$(cat "$PROJECT/codex.args")
+assert_contains "$codex_yolo_max_run" "--dangerously-bypass-hook-trust"
+assert_contains "$codex_yolo_max_run" "app-server"
+
+rm "$PROJECT/codex.args"
+conflict_status=0
+PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
+  "$AGENT_LANDLOCK_BIN" --yolo-max -d "$PROJECT" codex --no-yolo -- exec prompt \
+  >"$PROJECT/yolo-conflict.out" 2>&1 || conflict_status=$?
+[[ "$conflict_status" == "2" ]] || fail "YOLO flag conflict exit was $conflict_status"
+assert_contains "$(cat "$PROJECT/yolo-conflict.out")" "--no-yolo and --yolo-max cannot be combined"
+assert_not_exists "$PROJECT/codex.args"
 
 PROJECT_OUT="$PROJECT" PATH="$bin_dir:$PATH" \
   "$AGENT_LANDLOCK_BIN" --no-yolo -d "$PROJECT" codex -- exec prompt

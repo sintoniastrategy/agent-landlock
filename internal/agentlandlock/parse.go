@@ -11,6 +11,7 @@ type CommonOptions struct {
 	DryRun       bool
 	Force        bool
 	NoYolo       bool
+	YoloMax      bool
 	NoAgentState bool
 	Verbose      bool
 	Quiet        bool
@@ -205,7 +206,16 @@ func consumeCommon(argv []string, common CommonOptions) (CommonOptions, []string
 			common.Force = true
 			args = args[1:]
 		case "--no-yolo":
+			if common.YoloMax {
+				return common, nil, exitError(ExitUsage, "--no-yolo and --yolo-max cannot be combined")
+			}
 			common.NoYolo = true
+			args = args[1:]
+		case "--yolo-max":
+			if common.NoYolo {
+				return common, nil, exitError(ExitUsage, "--no-yolo and --yolo-max cannot be combined")
+			}
+			common.YoloMax = true
 			args = args[1:]
 		case "--no-agent-state":
 			common.NoAgentState = true

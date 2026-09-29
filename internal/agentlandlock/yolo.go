@@ -5,12 +5,12 @@ import (
 	"path/filepath"
 )
 
-func forceAgentYolo(cmd []string, agent string, env map[string]string, noYolo bool) ([]string, error) {
-	if noYolo || agent == "" || !KnownAgents[agent] {
+func forceAgentYolo(cmd []string, agent string, env map[string]string, options CommonOptions) ([]string, error) {
+	if options.NoYolo || agent == "" || !KnownAgents[agent] {
 		return cmd, nil
 	}
 	if agent == "codex" {
-		return forceCodexYolo(cmd)
+		return forceCodexYolo(cmd, options.YoloMax)
 	}
 	if agent == "claude" {
 		return forceClaudeYolo(cmd)

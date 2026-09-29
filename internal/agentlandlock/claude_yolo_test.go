@@ -18,7 +18,7 @@ func TestForceClaudeYoloNormalizesFlags(t *testing.T) {
 	want := []string{"claude", "--dangerously-skip-permissions", "--permission-mode", "bypassPermissions", "--settings", "{}", "-p", "prompt"}
 	for _, input := range cases {
 		original := slices.Clone(input)
-		got, err := forceAgentYolo(input, "claude", map[string]string{}, false)
+		got, err := forceAgentYolo(input, "claude", map[string]string{}, CommonOptions{})
 		if err != nil || !slices.Equal(got, want) {
 			t.Fatalf("cmd = %#v, err = %v, want %#v", got, err, want)
 		}
@@ -44,11 +44,11 @@ func TestForceClaudeYoloRejectsConflicts(t *testing.T) {
 	} {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			input := append([]string{"claude"}, args...)
-			_, err := forceAgentYolo(input, "claude", map[string]string{}, false)
+			_, err := forceAgentYolo(input, "claude", map[string]string{}, CommonOptions{})
 			if err == nil || exitCode(err) != ExitUsage {
 				t.Fatalf("expected usage error, got %v", err)
 			}
-			got, err := forceAgentYolo(input, "claude", map[string]string{}, true)
+			got, err := forceAgentYolo(input, "claude", map[string]string{}, CommonOptions{NoYolo: true})
 			if err != nil || !slices.Equal(input, got) {
 				t.Fatalf("--no-yolo changed arguments: %#v, %v", got, err)
 			}
@@ -65,7 +65,7 @@ func TestForceClaudeYoloPreservesArguments(t *testing.T) {
 		{"--resume=previous", "continue"},
 	} {
 		input := append([]string{"/opt/claude/bin/claude"}, args...)
-		got, err := forceAgentYolo(input, inferAgent(input), map[string]string{}, false)
+		got, err := forceAgentYolo(input, inferAgent(input), map[string]string{}, CommonOptions{})
 		if err != nil || got[0] != input[0] || !slices.Equal(got[6:], args) {
 			t.Fatalf("original arguments not preserved: %#v, %v", got, err)
 		}
